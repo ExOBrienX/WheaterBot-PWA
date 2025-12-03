@@ -1,5 +1,5 @@
-{
-  // Nombre completo de la aplicación (usado en pantalla de instalación)
+
+  //Nombre completo de la aplicación (usado en pantalla de instalación)
   "name": "WheaterBot - Clima con IA",
   
   // Nombre corto (usado cuando espacio es limitado)
@@ -36,19 +36,19 @@
   
   // Array de iconos en diferentes tamaños y propósitos
   "icons": [
-    {
+    //{
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"  // Icono normal
     },
-    {
+    //{
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
-    {
+   // {
       "src": "/icon-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
@@ -58,13 +58,13 @@
   
   // Screenshots para la tienda o pantalla de instalación
   "screenshots": [
-    {
+    //{
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "wide"  // Vista en pantalla ancha
     },
-    {
+    //{
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
@@ -77,7 +77,7 @@
   
   // Accesos directos que aparecen al hacer click largo en el icono
   "shortcuts": [
-    {
+   // {
       "name": "Clima actual",
       "short_name": "Clima",
       "description": "Ver clima actual",
@@ -85,4 +85,3 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
-}
