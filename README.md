@@ -32,7 +32,7 @@ Una **Progressive Web App (PWA)** que te proporciona pronósticos meteorológico
 - ✅ Respuestas específicas por hora (ej: "¿y para más tarde?")
 - ✅ Recomendaciones según temperatura
 - ✅ Memoria de conversación (cache de contexto)
-- ✅ Geolocalización automática
+- ✅ Captura de geolocalización (opcional, para precisión)
 - ✅ Historial de ciudades consultadas
 - ✅ Validación inteligente de solicitudes
 
