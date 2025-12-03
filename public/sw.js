@@ -1,28 +1,53 @@
+/**
+ * =========================================
+ * SERVICE WORKER - WEATHERBOT PWA
+ * =========================================
+ * 
+ * Este archivo es fundamental para hacer la PWA funcionar offline.
+ * Intercepta todas las peticiones y utiliza una estrategia de caché.
+ * 
+ * Estrategia: Network-First + Fallback a Caché
+ * - Intenta conectarse a internet primero
+ * - Si falla, usa datos en caché
+ * - Si no hay caché, devuelve error offline
+ */
+
+// Nombre único del caché (cambiar para forzar actualización)
 const CACHE_NAME = 'weatherbot-v1';
+
+// Archivos estáticos que se cachean en la instalación
 const urlsToCache = [
-  '/',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable.png'
+  '/',                          // Página principal
+  '/manifest.json',             // Manifest PWA
+  '/icon-192.png',              // Icono pequeño
+  '/icon-512.png',              // Icono grande
+  '/icon-maskable.png'          // Icono adaptativo
 ];
 
-// INSTALAR: cachear archivos estáticos
+// =========================================
+// EVENTO: INSTALL (Primera vez que se instala el SW)
+// =========================================
 self.addEventListener('install', event => {
+  // Esperar a que se complete el caché de archivos estáticos
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       console.log('🔧 Service Worker: Cacheando archivos estáticos');
       return cache.addAll(urlsToCache);
     })
   );
+  // Activar inmediatamente sin esperar otras pestañas
   self.skipWaiting();
 });
 
-// ACTIVAR: limpiar caches viejos
+// =========================================
+// EVENTO: ACTIVATE (Cuando se activa el SW)
+// =========================================
 self.addEventListener('activate', event => {
   event.waitUntil(
+    // Obtener todos los cachés existentes
     caches.keys().then(cacheNames => {
       return Promise.all(
+        // Eliminar cachés viejos (versiones anteriores)
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
             console.log('🧹 Service Worker: Limpiando cache antiguo', cacheName);
@@ -32,34 +57,42 @@ self.addEventListener('activate', event => {
       );
     })
   );
+  // Tomar control de todas las pestañas abiertas
   self.clients.claim();
 });
 
-// FETCH: Estrategia Network-First con fallback a caché
+// =========================================
+// EVENTO: FETCH (Cuando se realiza una petición)
+// =========================================
 self.addEventListener('fetch', event => {
-  // Solo cachear requests GET
+  // Solo cachear peticiones GET (no POST, DELETE, etc)
   if (event.request.method !== 'GET') return;
 
+  // Estrategia: Network-First
   event.respondWith(
+    // 1. Intentar obtener de internet
     fetch(event.request)
       .then(response => {
-        // Si es exitosa (status 200), guardar en caché
+        // 2. Si la respuesta es exitosa (status 200)
         if (response.status === 200) {
+          // Guardar en caché para uso futuro
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseToCache);
           });
         }
+        // Devolver la respuesta del servidor
         return response;
       })
       .catch(() => {
-        // Si la red falla, intentar usar caché
+        // 3. Si la red falla (sin conexión)
         return caches.match(event.request)
           .then(response => {
+            // Si hay algo en caché, devolverlo
             if (response) {
               return response;
             }
-            // Fallback offline (opcional)
+            // Si no hay caché, devolver error offline
             return new Response('Offline - contenido no disponible', {
               status: 503,
               statusText: 'Service Unavailable'
