@@ -15,7 +15,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WheaterBot - Clima con IA",
-  description: "Chatbot que muestra datos meteorológicos con IA",
+  description: "Chatbot que proporciona pronósticos meteorológicos con recomendaciones inteligentes impulsadas por IA",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent" as const,
+    title: "WheaterBot",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
