@@ -93,6 +93,24 @@ export interface ChatAPIRequest {
     lat: number;
     lon: number;
   };
+  cache?: {
+    lastCities: string[];
+    weatherHistory: Array<{
+      city: string;
+      timestamp: number;
+      type: 'current' | 'forecast';
+    }>;
+    userPreferences?: {
+      timezone?: number;
+      language?: string;
+    };
+    // 🆕 Pregunta pendiente
+    pendingQuestion?: {
+      type: 'city_confirmation';
+      city: string;
+      timestamp: number;
+    };
+  };
 }
 
 export interface ChatAPIResponse {

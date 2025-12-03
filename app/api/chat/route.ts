@@ -88,7 +88,8 @@ PERSONALIDAD:
 - Natural y conversacional
 - Reconoce cuando el usuario pide clima aunque mencione otras cosas
 - Nunca sugieras buscar en internet, TÚ tienes el clima
-- Nunca menciones JSON al usuario`;
+- Nunca menciones JSON al usuario
+- ⚠️ IMPORTANTE: Si el usuario pide clima pero NO menciona una ciudad específica, SIEMPRE pregunta qué ciudad en tu respuesta. NO asumas ciudades.`;
 }
 
 // ============================================
@@ -101,6 +102,56 @@ interface WeatherRequest {
   type: 'current' | 'forecast';
   days_count?: number;
   start_from?: number;
+}
+
+// ============================================
+// FUNCIONES DE CONTEXTO HORARIO
+// ============================================
+
+interface TimeContext {
+  hour: number;
+  period: 'madrugada' | 'mañana' | 'tarde' | 'noche';
+  isDarkOutside: boolean;
+  emoji: string;
+}
+
+function getTimeContext(timezone?: number): TimeContext {
+  const now = new Date();
+  let hour = now.getHours();
+  
+  // Si tenemos zona horaria, ajustar
+  if (timezone) {
+    hour = (hour + Math.round(timezone / 3600)) % 24;
+  }
+  
+  let period: 'madrugada' | 'mañana' | 'tarde' | 'noche';
+  let isDarkOutside: boolean;
+  let emoji: string;
+  
+  if (hour >= 5 && hour < 12) {
+    period = 'mañana';
+    isDarkOutside = false;
+    emoji = '🌅';
+  } else if (hour >= 12 && hour < 17) {
+    period = 'tarde';
+    isDarkOutside = false;
+    emoji = '☀️';
+  } else if (hour >= 17 && hour < 21) {
+    period = 'noche';
+    isDarkOutside = false; // Atardecer
+    emoji = '🌆';
+  } else if (hour >= 21 && hour < 23) {
+    period = 'noche';
+    isDarkOutside = true;
+    emoji = '🌙';
+  } else {
+    // 23:00 - 04:59
+    period = 'madrugada';
+    isDarkOutside = true;
+    emoji = '🌌';
+  }
+  
+  return { hour, period, isDarkOutside, emoji };
 }
 
 function esRespuestaCasual(mensaje: string): boolean {
@@ -118,6 +169,41 @@ function esRespuestaCasual(mensaje: string): boolean {
   ];
   
   return respuestasCasuales.some(pattern => pattern.test(mensajeLower));
+}
+
+// 🆕 DETECTAR SI ES CONFIRMACIÓN (SÍ/NO)
+function esConfirmacion(mensaje: string): { type: 'si' | 'no' | null; } {
+  const mensajeLower = mensaje.toLowerCase().trim();
+  
+  if (/^(si|sí|ok|vale|claro|perfecto|genial|bien|bueno|dale)$/.test(mensajeLower)) {
+    return { type: 'si' };
+  }
+  
+  if (/^(no|nope|nah|nunca|para nada)$/.test(mensajeLower)) {
+    return { type: 'no' };
+  }
+  
+  return { type: null };
+}
+
+// 🆕 EXTRAER CIUDAD DEL MENSAJE
+function extraerCiudadDelMensaje(mensaje: string): string | null {
+  const mensajeLower = mensaje.toLowerCase().trim();
+  
+  // Si el mensaje es muy corto y no tiene palabras reservadas, probablemente sea una ciudad
+  // Ej: "Talca", "Santiago", "Madrid"
+  const palabrasReservadas = ['si', 'sí', 'no', 'ok', 'vale', 'claro', 'bueno', 'bien', 'y', 'o', 'el', 'la', 'de', 'en', 'por', 'para'];
+  const palabras = mensajeLower.split(/\s+/);
+  
+  // Si tiene 1-2 palabras y no son reservadas, podría ser una ciudad
+  if (palabras.length <= 2) {
+    const palabrasPrincipales = palabras.filter(p => !palabrasReservadas.includes(p) && p.length > 2);
+    if (palabrasPrincipales.length > 0) {
+      return palabrasPrincipales.join(' ');
+    }
+  }
+  
+  return null;
 }
 
 function esSolicitudClimaValida(mensaje: string): boolean {
@@ -141,7 +227,7 @@ function esSolicitudClimaValida(mensaje: string): boolean {
   const esPreguntaMeta = preguntasMeta.some(pattern => pattern.test(mensaje));
   if (esPreguntaMeta) {
     console.log('ℹ️ Pregunta META sobre capacidades del bot');
-    return false; // No buscar clima, solo responder conversacionalmente
+    return false;
   }
   
   // Keywords FUERTES que confirman petición de clima REAL
@@ -150,15 +236,22 @@ function esSolicitudClimaValida(mensaje: string): boolean {
     'va a llover', 'llover', 'lluvia', 'hace calor', 'hace frío',
     'qué tiempo', 'cómo está el', 'dame el clima', 'quiero saber el',
     'me das el clima', 'me puedes dar', 'dime el clima', 'cómo estará',
-    'me das el', 'puedes darme el clima', 'dime cómo está'
+    'como estara', 'me das el', 'puedes darme el clima', 'dime cómo está',
+    'dime como esta', 'estará', 'estara', 'cómo está', 'como esta'
   ];
   
   // Detectar referencias temporales específicas (días de la semana, "próximo", etc)
+  // También incluye referencias a períodos del día
   const referenciasTemporales = [
-    /próximo (lunes|martes|miércoles|miércoles|jueves|viernes|sábado|sabado|domingo)/i,
-    /para el (lunes|martes|miércoles|miércoles|jueves|viernes|sábado|sabado|domingo)/i,
-    /el próximo (lunes|martes|miércoles|miércoles|jueves|viernes|sábado|sabado|domingo)/i,
-    /clima del? (lunes|martes|miércoles|miércoles|jueves|viernes|sábado|sabado|domingo)/i
+    /próximo (lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
+    /para el (lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
+    /el próximo (lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
+    /clima del? (lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
+    // Referencias a períodos del día
+    /más tarde|en la tarde|esta tarde|por la tarde|de la tarde|luego|después/i,
+    /esta noche|por la noche|en la noche|durante la noche|de noche/i,
+    /madrugada|muy temprano|de madrugada|al amanecer/i,
+    /durante el d[ií]a|en el d[ií]a|lo que queda del d[ií]a/i
   ];
   
   const tieneReferenciaTemp = referenciasTemporales.some(pattern => pattern.test(mensaje));
@@ -197,14 +290,139 @@ function sonConsultasIguales(prev: any, current: WeatherRequest): boolean {
   
   if (prevType !== currentType) return false;
   
+  // Si son de diferentes períodos (ej: hoy vs mañana), NO son iguales
+  if (prevStartFrom !== currentStartFrom) return false;
+  
   if (currentType === 'forecast') {
     const prevDays = prev.requestedDays || prev.list?.length || 7;
     const currentDays = current.days_count || 7;
     
-    return prevStartFrom === currentStartFrom && prevDays === currentDays;
+    // Solo son iguales si: misma ciudad, mismo período de inicio, misma cantidad de días
+    return prevDays === currentDays;
   }
   
   return true;
+}
+
+// 🆕 DETECTAR REFERENCIAS TEMPORALES DENTRO DEL DÍA
+// ============================================
+
+interface TimePeriodReference {
+  found: boolean;
+  periods: Array<'morn' | 'day' | 'eve' | 'night'>;
+  description: string;
+}
+
+function detectarPerioDoDelDia(mensaje: string): TimePeriodReference {
+  const mensajeLower = mensaje.toLowerCase();
+  
+  // Detectar "más tarde", "tarde", "en la tarde", "luego", "después"
+  if (/más tarde|en la tarde|esta tarde|por la tarde|de la tarde|luego|después|más adelante/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['day', 'eve'], // Cubre tarde (día) y atardecer (eve)
+      description: 'más tarde (tarde/atardecer)'
+    };
+  }
+  
+  // Detectar "noche", "esta noche", "por la noche"
+  if (/esta noche|por la noche|en la noche|durante la noche|de noche/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['eve', 'night'], // Noche incluye atardecer y madrugada
+      description: 'esta noche'
+    };
+  }
+  
+  // Detectar "madrugada" (muy temprano por la mañana)
+  if (/madrugada|muy temprano|de madrugada|al amanecer/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['morn'], // Solo temperaturas matutinas
+      description: 'madrugada/muy temprano'
+    };
+  }
+  
+  // Detectar "mañana en la mañana", "mañana por la mañana" (sin confundir con solo "mañana")
+  if (/mañana\s+(en\s+la\s+)?mañana|mañana\s+(por\s+la\s+)?madrugada|temprano\s+mañana/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['morn'], 
+      description: 'mañana por la mañana'
+    };
+  }
+  
+  // Detectar "mañana en la tarde", "mañana por la tarde"
+  if (/mañana\s+(en\s+la\s+)?tarde|mañana\s+(por\s+la\s+)?tarde|mañana\s+atardecer/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['day', 'eve'], 
+      description: 'mañana por la tarde'
+    };
+  }
+  
+  // Detectar "mañana en la noche", "mañana por la noche"
+  if (/mañana\s+(en\s+la\s+)?noche|mañana\s+(por\s+la\s+)?noche|mañana\s+de\s+noche/.test(mensajeLower)) {
+    return { 
+      found: true, 
+      periods: ['eve', 'night'], 
+      description: 'mañana por la noche'
+    };
+  }
+  
+  return { found: false, periods: [], description: '' };
+}
+
+// 🆕 FORMATEAR RESPUESTA DE PERÍODO ESPECÍFICO DEL DÍA
+function formatearPeriodoDelDia(
+  dayData: any,
+  dayName: string,
+  periods: Array<'morn' | 'day' | 'eve' | 'night'>,
+  timeContext: TimeContext
+): string {
+  const periodLabels = {
+    morn: { label: 'por la mañana', icon: '🌅', temp: dayData.temp.morn },
+    day: { label: 'por la tarde', icon: '☀️', temp: dayData.temp.day },
+    eve: { label: 'al atardecer', icon: '🌆', temp: dayData.temp.eve },
+    night: { label: 'por la noche', icon: '🌙', temp: dayData.temp.night }
+  };
+  
+  // Construir lista de períodos
+  const periodosTexto = periods.map(p => periodLabels[p].label).join(' y ');
+  const maxTempPeriodo = Math.max(...periods.map(p => periodLabels[p].temp));
+  const minTempPeriodo = Math.min(...periods.map(p => periodLabels[p].temp));
+  
+  let respuesta = ``;
+  
+  // Contexto horario si es hoy
+  if (dayName === 'hoy') {
+    respuesta += `${timeContext.emoji} Ahora mismo son las ~${String(timeContext.hour).padStart(2, '0')}:00 (${timeContext.period})\n\n`;
+  }
+  
+  // Respuesta natural
+  respuesta += `Para ${dayName} ${periodosTexto}:\n`;
+  
+  // Mostrar temperaturas específicas
+  for (const period of periods) {
+    const info = periodLabels[period];
+    respuesta += `${info.icon} ${info.label.charAt(0).toUpperCase() + info.label.slice(1)}: **${info.temp}°C**\n`;
+  }
+  
+  // Clima general
+  respuesta += `\n${dayData.weather[0].description}`;
+  
+  // Recomendaciones según temperatura
+  if (maxTempPeriodo > 30) {
+    respuesta += `\n\n🔥 **ALERTA CALOR EXTREMO** (hasta ${maxTempPeriodo}°C):\n- ☀️ Protección solar SPF 50+\n- 💧 Hidratación constante\n- 🏃 Evita actividades entre 12-16h`;
+  } else if (maxTempPeriodo > 26) {
+    respuesta += `\n\n☀️ Calor considerable (${maxTempPeriodo}°C):\n- Ropa ligera y clara\n- Gafas de sol\n- Mantente hidratado`;
+  } else if (minTempPeriodo < 5) {
+    respuesta += `\n\n❄️ Frío intenso (${minTempPeriodo}°C):\n- Abrigo adecuado\n- Cuida extremidades`;
+  }
+  
+  respuesta += `\n\n¿Quieres más información? 🤔`;
+  
+  return respuesta;
 }
 
 // ============================================
@@ -215,7 +433,8 @@ function generarSugerenciasContextuales(
   tipo: 'current' | 'forecast',
   daysCount: number,
   startFrom: number,
-  city: string
+  city: string,
+  temperatura?: number
 ): string[] {
   const now = new Date();
   const hoy = now.getDay();
@@ -224,14 +443,26 @@ function generarSugerenciasContextuales(
   const sugerencias: string[] = [];
   const random = Math.random();
   
+  // Detectar si hace calor extremo (>28°C)
+  const esCalorExtremo = temperatura && temperatura > 28;
+  
   if (tipo === 'current') {
     // Sugerencias para clima actual
-    const opciones = [
-      [`¿Y mañana?`, `¿Necesitas algo más?`],
-      [`¿Quieres el pronóstico de la semana?`, `¿Te ayudo con otra ciudad?`],
-      [`¿Cómo estará el fin de semana?`, `¿Necesitas planear algo?`],
-      [`¿Y el ${dias[(hoy + 1) % 7]}?`, `¿Algo más?`]
-    ];
+    let opciones: string[][];
+    if (esCalorExtremo) {
+      opciones = [
+        [`¿Quieres el pronóstico para planear mejor con el calor?`, `¿Necesitas consejos?`],
+        [`¿Cómo estará mañana con el calor?`, `¿Algo más?`],
+        [`¿Quieres saber de temperaturas más frescas en la semana?`, `¿Te ayudo con otra ciudad?`]
+      ];
+    } else {
+      opciones = [
+        [`¿Y mañana?`, `¿Necesitas algo más?`],
+        [`¿Quieres el pronóstico de la semana?`, `¿Te ayudo con otra ciudad?`],
+        [`¿Cómo estará el fin de semana?`, `¿Necesitas planear algo?`],
+        [`¿Y el ${dias[(hoy + 1) % 7]}?`, `¿Algo más?`]
+      ];
+    }
     return opciones[Math.floor(random * opciones.length)];
   }
   
@@ -239,47 +470,89 @@ function generarSugerenciasContextuales(
     // Sugerencias para día específico
     if (startFrom === 0) {
       // HOY
-      const opciones = [
-        [`¿Y mañana?`, `¿Necesitas más detalles?`],
-        [`¿Quieres el resto de la semana?`, `¿Te ayudo con otra ciudad?`],
-        [`¿Cómo estará mañana?`, `¿Algo más?`]
-      ];
+      let opciones: string[][];
+      if (esCalorExtremo) {
+        opciones = [
+          [`¿Cómo estará mañana?`, `¿Tendrá menos calor?`],
+          [`¿Te gustaría ver toda la semana por el calor?`, `¿Algo más?`]
+        ];
+      } else {
+        opciones = [
+          [`¿Y mañana?`, `¿Necesitas más detalles?`],
+          [`¿Quieres el resto de la semana?`, `¿Te ayudo con otra ciudad?`],
+          [`¿Cómo estará mañana?`, `¿Algo más?`]
+        ];
+      }
       return opciones[Math.floor(random * opciones.length)];
     } else if (startFrom === 1) {
       // MAÑANA
-      const opciones = [
-        [`¿Y pasado mañana?`, `¿Necesitas algo más?`],
-        [`¿Quieres toda la semana?`, `¿Te ayudo con otra ciudad?`],
-        [`¿Cómo estará el ${dias[(hoy + 2) % 7]}?`, `¿Algo más?`]
-      ];
+      let opciones: string[][];
+      if (esCalorExtremo) {
+        opciones = [
+          [`¿Y el ${dias[(hoy + 2) % 7]}? ¿Seguirá el calor?`, `¿Algo más?`],
+          [`¿Necesitas ver días más frescos?`, `¿Te ayudo con otra ciudad?`]
+        ];
+      } else {
+        opciones = [
+          [`¿Y pasado mañana?`, `¿Necesitas algo más?`],
+          [`¿Quieres toda la semana?`, `¿Te ayudo con otra ciudad?`],
+          [`¿Cómo estará el ${dias[(hoy + 2) % 7]}?`, `¿Algo más?`]
+        ];
+      }
       return opciones[Math.floor(random * opciones.length)];
     } else {
       // OTRO DÍA ESPECÍFICO
       const diaAnterior = dias[(hoy + startFrom - 1 + 7) % 7];
       const diaSiguiente = dias[(hoy + startFrom + 1) % 7];
-      const opciones = [
-        [`¿Y el ${diaSiguiente}?`, `¿Algo más?`],
-        [`¿Quieres toda la semana?`, `¿Necesitas otra ciudad?`],
-        [`¿Te digo desde el ${diaAnterior}?`, `¿Algo más?`]
-      ];
+      let opciones: string[][];
+      if (esCalorExtremo) {
+        opciones = [
+          [`¿Y el ${diaSiguiente}? ¿Continuará el calor?`, `¿Algo más?`],
+          [`¿Quieres ver días más frescos en la semana?`, `¿Algo más?`]
+        ];
+      } else {
+        opciones = [
+          [`¿Y el ${diaSiguiente}?`, `¿Algo más?`],
+          [`¿Quieres toda la semana?`, `¿Necesitas otra ciudad?`],
+          [`¿Te digo desde el ${diaAnterior}?`, `¿Algo más?`]
+        ];
+      }
       return opciones[Math.floor(random * opciones.length)];
     }
   }
   
   // Sugerencias para múltiples días
   if (daysCount >= 5) {
-    const opciones = [
-      [`¿Quieres detalles de un día específico?`, `¿Te ayudo con algo más?`],
-      [`¿Necesitas el clima de otra ciudad?`, `¿Algo más?`],
-      [`¿Te ayudo a planear tu semana?`, `¿Necesitas algo más?`]
-    ];
+    let opciones: string[][];
+    if (esCalorExtremo) {
+      opciones = [
+        [`¿Quieres detalles de cuándo baje la temperatura?`, `¿Te ayudo con algo más?`],
+        [`¿Necesitas otra ciudad con clima más fresco?`, `¿Algo más?`],
+        [`¿Te ayudo a planear actividades considerando el calor?`, `¿Necesitas algo más?`]
+      ];
+    } else {
+      opciones = [
+        [`¿Quieres detalles de un día específico?`, `¿Te ayudo con algo más?`],
+        [`¿Necesitas el clima de otra ciudad?`, `¿Algo más?`],
+        [`¿Te ayudo a planear tu semana?`, `¿Necesitas algo más?`]
+      ];
+    }
     return opciones[Math.floor(random * opciones.length)];
   } else {
-    const opciones = [
-      [`¿Quieres el resto de la semana?`, `¿Algo más?`],
-      [`¿Necesitas detalles de un día específico?`, `¿Te ayudo con otra ciudad?`],
-      [`¿Te extiendo el pronóstico?`, `¿Algo más?`]
-    ];
+    let opciones: string[][];
+    if (esCalorExtremo) {
+      opciones = [
+        [`¿Quieres ver cuándo baja el calor?`, `¿Algo más?`],
+        [`¿Necesitas detalles de temperaturas más bajas?`, `¿Te ayudo con otra ciudad?`],
+        [`¿Te extiendo el pronóstico para encontrar días más frescos?`, `¿Algo más?`]
+      ];
+    } else {
+      opciones = [
+        [`¿Quieres el resto de la semana?`, `¿Algo más?`],
+        [`¿Necesitas detalles de un día específico?`, `¿Te ayudo con otra ciudad?`],
+        [`¿Te extiendo el pronóstico?`, `¿Algo más?`]
+      ];
+    }
     return opciones[Math.floor(random * opciones.length)];
   }
 }
@@ -298,13 +571,154 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ChatAPIRequest = await request.json();
-    const { message, history, location } = body;
+    const { message, history, location, cache } = body;
 
     if (!message) {
       return NextResponse.json<ChatAPIResponse>(
         { message: 'Error', error: 'El mensaje no puede estar vacío' },
         { status: 400 }
       );
+    }
+
+    // 🆕 Obtener contexto horario basado en timezone del cache
+    const timeContext = getTimeContext(cache?.userPreferences?.timezone);
+
+    // 🆕 NUEVO: Detectar si hay pregunta pendiente y el usuario responde "sí"
+    const confirmacion = esConfirmacion(message);
+    if (confirmacion.type === 'si' && cache?.pendingQuestion?.type === 'city_confirmation') {
+      console.log(`✅ Confirmación detectada para ciudad: ${cache.pendingQuestion.city}`);
+      
+      // Crear un mensaje interno para solicitar el clima de esa ciudad
+      const cityFromPending = cache.pendingQuestion.city;
+      
+      // Construir la solicitud como si el usuario hubiera pedido el clima
+      const internalWeatherRequest: WeatherRequest = {
+        needs_weather: true,
+        city: cityFromPending,
+        type: 'current'
+      };
+      
+      // Saltar directamente a obtener el clima
+      console.log('🌤️ Procesando solicitud confirmada:', internalWeatherRequest);
+      
+      // Copiar lógica de obtención de clima aquí
+      const weatherResponse = await fetch(`${request.nextUrl.origin}/api/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          city: cityFromPending,
+          lat: location?.lat,
+          lon: location?.lon,
+          type: 'current'
+        }),
+      });
+
+      const weatherData = await weatherResponse.json();
+      
+      if (!weatherResponse.ok || !weatherData.success) {
+        const errorMsg = weatherData.error || 'No se pudo obtener el clima';
+        return NextResponse.json<ChatAPIResponse>({
+          message: `❌ Lo siento, actualmente no tengo acceso a información climática de **"${cityFromPending}"**.\n\n¿Quieres probar con otra ubicación? 🌍`,
+          needsWeather: false
+        });
+      }
+
+      if (weatherData.data) {
+        const enrichedWeatherData = {
+          ...weatherData.data,
+          startFrom: 0,
+          requestedDays: 1
+        };
+
+        const sugerencias = generarSugerenciasContextuales('current', 1, 0, cityFromPending, enrichedWeatherData.temp);
+
+        const finalMessage = await generateWeatherResponse(
+          enrichedWeatherData,
+          cityFromPending,
+          [],
+          sugerencias,
+          `Sí`,
+          timeContext
+        );
+
+        // Limpiar pregunta pendiente
+        if (cache) {
+          cache.pendingQuestion = undefined;
+        }
+
+        return NextResponse.json<ChatAPIResponse>({
+          message: finalMessage,
+          needsWeather: true,
+          weatherData: enrichedWeatherData
+        });
+      }
+    }
+
+    // Si dice "no" a la pregunta pendiente, limpiar
+    if (confirmacion.type === 'no' && cache?.pendingQuestion?.type === 'city_confirmation') {
+      console.log(`❌ Usuario rechazó: ${cache.pendingQuestion.city}`);
+      if (cache) {
+        cache.pendingQuestion = undefined;
+      }
+    }
+
+    // 🆕 NUEVO: Si hay pregunta pendiente y usuario responde con una ciudad
+    const ciudadExtraida = extraerCiudadDelMensaje(message);
+    if (ciudadExtraida && cache?.pendingQuestion?.type === 'city_confirmation') {
+      console.log(`📍 Ciudad extraída de respuesta: ${ciudadExtraida}`);
+      
+      // Actualizar la ciudad en la pregunta pendiente
+      cache.pendingQuestion.city = ciudadExtraida;
+      
+      // Procesar automáticamente esa ciudad
+      const weatherResponse = await fetch(`${request.nextUrl.origin}/api/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          city: ciudadExtraida,
+          lat: location?.lat,
+          lon: location?.lon,
+          type: 'current'
+        }),
+      });
+
+      const weatherData = await weatherResponse.json();
+      
+      if (!weatherResponse.ok || !weatherData.success) {
+        return NextResponse.json<ChatAPIResponse>({
+          message: `❌ No encontré información de **"${ciudadExtraida}"**. ¿Quieres probar con otra ciudad? 🌍`,
+          needsWeather: false
+        });
+      }
+
+      if (weatherData.data) {
+        const enrichedWeatherData = {
+          ...weatherData.data,
+          startFrom: 0,
+          requestedDays: 1
+        };
+
+        const sugerencias = generarSugerenciasContextuales('current', 1, 0, ciudadExtraida, enrichedWeatherData.temp);
+
+        const finalMessage = await generateWeatherResponse(
+          enrichedWeatherData,
+          ciudadExtraida,
+          [],
+          sugerencias,
+          message,
+          timeContext
+        );
+
+        if (cache) {
+          cache.pendingQuestion = undefined;
+        }
+
+        return NextResponse.json<ChatAPIResponse>({
+          message: finalMessage,
+          needsWeather: true,
+          weatherData: enrichedWeatherData
+        });
+      }
     }
 
     // 🔍 VALIDACIÓN TEMPRANA: Si es respuesta casual pura
@@ -493,7 +907,7 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             
             if (errorMsg.includes('no encontrada') || errorMsg.includes('not found')) {
               return NextResponse.json<ChatAPIResponse>({
-                message: `No encontré información sobre "${weatherRequest.city}". 🤔\n\n¿Podrías especificar mejor? Por ejemplo: "${weatherRequest.city}, [País]"`,
+                message: `❌ Lo siento, actualmente no tengo acceso a información climática de **"${weatherRequest.city}"**.\n\nPuedo ayudarte con:\n• Otras ciudades importantes\n• Ciudades cercanas\n• O consultar por "Ciudad, País" para ser más específico\n\n¿Quieres probar con otra ubicación? 🌍`,
                 needsWeather: false
               });
             }
@@ -508,12 +922,51 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
               requestedDays: daysCount
             };
 
-            // ✅ NUEVO: Generar sugerencias contextuales
+            // 🆕 DETECTAR SI BUSCA PERÍODO ESPECÍFICO DEL DÍA
+            const periodoDia = detectarPerioDoDelDia(message);
+            
+            if (periodoDia.found && weatherRequest.type === 'forecast' && enrichedWeatherData.list?.length > 0) {
+              // Usuario preguntó por un período específico (ej: "más tarde", "esta noche")
+              const dayData = enrichedWeatherData.list[0]; // Primer día del pronóstico
+              
+              let dayName = 'hoy';
+              if (startFrom === 1) {
+                dayName = 'mañana';
+              } else if (startFrom === 2) {
+                dayName = 'pasado mañana';
+              }
+              
+              const respuestaPeriodicidad = formatearPeriodoDelDia(
+                dayData,
+                dayName,
+                periodoDia.periods,
+                timeContext
+              );
+              
+              console.log(`✅ Detectado período del día: "${periodoDia.description}"`);
+              
+              return NextResponse.json<ChatAPIResponse>({
+                message: respuestaPeriodicidad,
+                needsWeather: true,
+                weatherData: enrichedWeatherData
+              });
+            }
+
+            // ✅ NUEVO: Generar sugerencias contextuales (FLUJO NORMAL)
+            // Obtener temperatura máxima para decidir si hay calor extremo
+            let maxTemp = 0;
+            if (weatherRequest.type === 'forecast' && enrichedWeatherData.list?.length > 0) {
+              maxTemp = Math.max(...enrichedWeatherData.list.map((d: any) => d.temp?.max || 0));
+            } else if ('temp' in enrichedWeatherData) {
+              maxTemp = enrichedWeatherData.temp || 0;
+            }
+            
             const sugerencias = generarSugerenciasContextuales(
               weatherRequest.type,
               daysCount,
               startFrom,
-              weatherRequest.city
+              weatherRequest.city,
+              maxTemp
             );
 
             const finalMessage = weatherRequest.type === 'forecast' 
@@ -524,14 +977,16 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
                   daysCount,
                   startFrom,
                   sugerencias,
-                  message // ✅ NUEVO: Pasar mensaje original
+                  message,
+                  timeContext // 🆕
                 )
               : await generateWeatherResponse(
                   enrichedWeatherData, 
                   weatherRequest.city, 
                   messages,
                   sugerencias,
-                  message // ✅ NUEVO: Pasar mensaje original
+                  message,
+                  timeContext // 🆕
                 );
 
             return NextResponse.json<ChatAPIResponse>({
@@ -572,14 +1027,39 @@ async function generateWeatherResponse(
   city: string,
   previousMessages: Array<{ role: string; content: string }>,
   sugerencias: string[],
-  userMessage: string
+  userMessage: string,
+  timeContext?: TimeContext
 ): Promise<string> {
   
   // ✅ NUEVO: Detectar si mencionó planes
   const mencionaPlanes = /\b(cita|reunión|salir|plan|voy|tengo que|iré)\b/i.test(userMessage);
   
+  // ✅ Evaluar si hay calor extremo
+  const esCalorExtremo = weatherData.temp > 28;
+  const esCalorModerado = weatherData.temp > 24 && weatherData.temp <= 28;
+  const esFrio = weatherData.temp < 10;
+  
+  // 🆕 Evaluar contexto de hora
+  let contextHora = '';
+  if (timeContext?.isDarkOutside) {
+    contextHora = `⚠️ CONTEXTO HORARIO: Es ${timeContext.period} (${timeContext.hour}:00 aprox). No sugieras actividades al aire libre diurnas, es de noche. Recomendaciones deben ser nocturas.`;
+  } else if (timeContext?.period === 'madrugada') {
+    contextHora = `⚠️ CONTEXTO HORARIO: Es madrugada (${timeContext.hour}:00). Probablemente el usuario esté durmiendo. Respuestas breves y sin sugerir actividades.`;
+  }
+  
+  let recomendacionClima = '';
+  if (esCalorExtremo) {
+    recomendacionClima = '⚠️ CONTEXTO: Hace CALOR EXTREMO. Las recomendaciones deben ser conservadoras: protección solar, mantenerse hidratado, evitar horas pico de calor, actividades a la sombra, etc. NO minimices el calor.';
+  } else if (esCalorModerado) {
+    recomendacionClima = '⚠️ CONTEXTO: Hace calor moderado. Recomendaciones equilibradas.';
+  } else if (esFrio) {
+    recomendacionClima = '⚠️ CONTEXTO: Hace frío. Recomendaciones de abrigo y protección.';
+  }
+  
   const weatherPrompt = `El usuario preguntó sobre el clima ACTUAL en ${city}.
 ${mencionaPlanes ? '\n⚠️ El usuario mencionó planes, sé empático y útil con recomendaciones.' : ''}
+${contextHora}
+${recomendacionClima}
 
 Datos del clima en este momento:
 - Ciudad: ${weatherData.city}, ${weatherData.country}
@@ -594,13 +1074,14 @@ Mensaje original del usuario: "${userMessage}"
 Genera una respuesta que:
 1. ${mencionaPlanes ? 'Primero reconozca sus planes brevemente' : 'Use emoji apropiado'}
 2. Presente los datos conversacionalmente
-3. Dé 1-2 recomendaciones útiles ${mencionaPlanes ? 'relacionadas con sus planes' : ''}
+3. Dé 1-2 recomendaciones útiles ${esCalorExtremo ? 'REALISTAS para el calor extremo (NO digas "día agradable")' : mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
 4. Termine con UNA de estas preguntas (elige la más natural):
    - "${sugerencias[0]}"
    - "${sugerencias[1]}"
 
 ⚠️ IMPORTANTE: 
 - NUNCA menciones "JSON" o "formato JSON" al usuario
+- ${esCalorExtremo ? `SÉ HONESTO: con ${weatherData.temp}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
 - Sé natural, amigable y varía tu respuesta`;
 
   try {
@@ -644,13 +1125,24 @@ async function generateForecastResponse(
   daysCount: number,
   startFrom: number,
   sugerencias: string[],
-  userMessage: string
+  userMessage: string,
+  timeContext?: TimeContext
 ): Promise<string> {
   
   const daysToShow = Math.min(daysCount, forecastData.list.length);
   const now = new Date();
   const hoy = now.getDay();
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  
+  // ✅ Detectar si hay calor extremo en los días solicitados
+  const maxTempForecast = Math.max(...forecastData.list.slice(0, daysToShow).map(d => d.temp?.max || 0));
+  const esCalorExtremo = maxTempForecast > 28;
+  
+  // 🆕 Contexto horario
+  let contextHora = '';
+  if (timeContext?.isDarkOutside) {
+    contextHora = `⚠️ CONTEXTO HORARIO: Es ${timeContext.period} (${timeContext.hour}:00 aprox). Usuario probablemente verá esto en la noche.`;
+  }
   
   // ✅ NUEVO: Detectar si mencionó planes
   const mencionaPlanes = /\b(cita|reunión|salir|plan|voy|tengo que|iré|evento)\b/i.test(userMessage);
@@ -701,6 +1193,8 @@ async function generateForecastResponse(
 
 El usuario preguntó sobre el pronóstico ${contextType} en ${city}.
 ${mencionaPlanes ? '\n⚠️ El usuario mencionó planes, sé empático y útil con recomendaciones relevantes.' : ''}
+${contextHora}
+${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${maxTempForecast}°C). Las recomendaciones deben ser REALISTAS y CONSERVADORAS: protección solar, evitar horas pico, mantenerse hidratado, NO digas "es un día agradable".` : ''}
 
 Pronóstico:
 
@@ -711,13 +1205,14 @@ Mensaje original del usuario: "${userMessage}"
 Genera una respuesta que:
 1. ${mencionaPlanes ? 'Primero reconozca sus planes brevemente' : 'Use emoji apropiado'}
 2. ${isSingleDay ? 'Enfócate EN ESE DÍA ESPECÍFICO con detalles útiles' : 'Da un resumen general + detalles por día'}
-3. Da 1-2 recomendaciones ${mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
+3. Da 1-2 recomendaciones ${esCalorExtremo ? 'REALISTAS para el calor extremo (NO seas ingenuo con altas temperaturas)' : mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
 4. Termina con UNA de estas preguntas (elige la más natural):
    - "${sugerencias[0]}"
    - "${sugerencias[1]}"
 
 ⚠️ IMPORTANTE: 
 - NUNCA menciones "JSON" o "formato JSON" al usuario
+- ${esCalorExtremo ? `Sé HONESTO: con ${maxTempForecast}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
 - Sé natural, conversacional y varía tu estilo de respuesta
 - Presenta la información de forma fluida y amigable`;
 

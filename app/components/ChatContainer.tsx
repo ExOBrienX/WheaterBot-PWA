@@ -6,6 +6,29 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import LoadingDots from './LoadingDots';
 
+// ============================================
+// INTERFAZ DE CACHE
+// ============================================
+
+interface ConversationCache {
+  lastCities: string[];
+  weatherHistory: Array<{
+    city: string;
+    timestamp: number;
+    type: 'current' | 'forecast';
+  }>;
+  userPreferences: {
+    timezone?: number;
+    language: string;
+  };
+  // 🆕 Pregunta pendiente
+  pendingQuestion?: {
+    type: 'city_confirmation'; // ¿Clima de X?
+    city: string;
+    timestamp: number;
+  };
+}
+
 export default function ChatContainer() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -18,6 +41,15 @@ export default function ChatContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // 🆕 Cache de contexto de conversación
+  const cacheRef = useRef<ConversationCache>({
+    lastCities: [],
+    weatherHistory: [],
+    userPreferences: {
+      language: 'es'
+    }
+  });
 
   // Auto-scroll al último mensaje
   const scrollToBottom = () => {
@@ -45,6 +77,42 @@ export default function ChatContainer() {
     }
   }, []);
 
+  // 🆕 Función para actualizar cache
+  const updateCache = (weatherData?: any) => {
+    if (weatherData?.city) {
+      // Agregar ciudad a historial si no está
+      cacheRef.current.lastCities = [
+        weatherData.city,
+        ...cacheRef.current.lastCities.filter(c => c !== weatherData.city)
+      ].slice(0, 5); // Mantener últimas 5 ciudades
+
+      // Agregar a historial de clima
+      cacheRef.current.weatherHistory.push({
+        city: weatherData.city,
+        timestamp: Date.now(),
+        type: weatherData.list ? 'forecast' : 'current'
+      });
+
+      // Limpiar historial antiguo (más de 1 hora)
+      const oneHourAgo = Date.now() - 3600000;
+      cacheRef.current.weatherHistory = cacheRef.current.weatherHistory.filter(
+        item => item.timestamp > oneHourAgo
+      );
+    }
+    
+    // 🆕 Limpiar pregunta pendiente cuando se obtiene el clima
+    cacheRef.current.pendingQuestion = undefined;
+  };
+
+  // 🆕 Función para guardar una pregunta pendiente
+  const setPendingQuestion = (city: string) => {
+    cacheRef.current.pendingQuestion = {
+      type: 'city_confirmation',
+      city: city,
+      timestamp: Date.now()
+    };
+  };
+
   // Enviar mensaje
   const handleSendMessage = async (content: string) => {
     // Agregar mensaje del usuario
@@ -67,8 +135,9 @@ export default function ChatContainer() {
         },
         body: JSON.stringify({
           message: content,
-          history: messages.slice(-10), // Últimos 10 mensajes para contexto
+          history: messages.slice(-15), // 🆕 Aumentado a 15 para mejor contexto
           location: userLocation,
+          cache: cacheRef.current, // 🆕 Pasar cache
         }),
       });
 
@@ -77,6 +146,11 @@ export default function ChatContainer() {
       }
 
       const data = await response.json();
+
+      // 🆕 Actualizar cache con nueva información
+      if (data.weatherData) {
+        updateCache(data.weatherData);
+      }
 
       // Agregar respuesta del asistente
       const assistantMessage: Message = {
