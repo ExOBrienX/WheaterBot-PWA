@@ -820,7 +820,7 @@ export async function POST(request: NextRequest) {
 
     // 🔍 VALIDACIÓN TEMPRANA: Si es respuesta casual pura
     if (esRespuestaCasual(message)) {
-      console.log('💬 Respuesta casual detectada, modo conversacional');
+      console.log('💬 Respuesta casual detectada, modo conversacional (salto early)');
       
       const casualResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -888,14 +888,19 @@ export async function POST(request: NextRequest) {
     const groqData = await groqResponse.json();
     const aiMessage = groqData.choices[0]?.message?.content || '';
 
+    console.log(`📨 Respuesta de Groq (primeros 200 chars): ${aiMessage.substring(0, 200)}`);
+    console.log(`🔍 ¿Contiene JSON needs_weather?: ${aiMessage.includes('needs_weather')}`);
+
     // Verificar si la IA detectó que necesita datos del clima
     if (aiMessage.includes('needs_weather')) {
       // ✅ NUEVO: Validación mejorada
       if (!esSolicitudClimaValida(message)) {
-        console.log('⚠️ No es petición de clima - Respuesta conversacional');
+        console.log('⚠️ No es petición de clima - Respuesta conversacional (JSON encontrado pero validación falló)');
         
         // Limpiar cualquier JSON del mensaje
         const cleanMessage = aiMessage.replace(/\{[^}]*"needs_weather"[^}]*\}/g, '').trim();
+        
+        console.log(`✂️ Mensaje limpio sin JSON: ${cleanMessage.substring(0, 150)}`);
         
         // Si el mensaje limpio está vacío o muy corto, generar respuesta apropiada
         if (!cleanMessage || cleanMessage.length < 10) {
@@ -918,9 +923,14 @@ export async function POST(request: NextRequest) {
           cleanJson = jsonMatch[0];
         }
         
+        console.log(`📋 JSON extraído: ${cleanJson}`);
+        
         const weatherRequest: WeatherRequest = JSON.parse(cleanJson);
         
+        console.log(`✅ JSON parseado correctamente:`, weatherRequest);
+        
         if (weatherRequest.needs_weather) {
+          console.log(`🌤️ needs_weather = true, procesando solicitud...`);
           // 🆕 Si no hay ciudad específica pero tenemos contexto anterior, usar esa ciudad
           if ((!weatherRequest.city || weatherRequest.city.trim() === '' || weatherRequest.city.toLowerCase() === 'genérica' || weatherRequest.city.toLowerCase() === 'generica') && lastCity) {
             console.log(`🏙️ Usando última ciudad del contexto: ${lastCity}`);
