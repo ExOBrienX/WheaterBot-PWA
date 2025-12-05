@@ -1247,7 +1247,16 @@ ${mencionaPlanes ? '\n⚠️ El usuario mencionó planes, sé empático y útil 
 ${contextHora}
 ${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${maxTempForecast}°C). Las recomendaciones deben ser REALISTAS y CONSERVADORAS: protección solar, evitar horas pico, mantenerse hidratado, NO digas "es un día agradable".` : ''}
 
-Pronóstico:
+⚠️ INSTRUCCIONES CRÍTICAS PARA ESTA RESPUESTA:
+- USA EXACTAMENTE los datos que te proporciono abajo
+- NO inventes datos ni probabilidades
+- Si dice "Prob. lluvia: 0%" significa SIN lluvia - di "sin lluvia" o "sin riesgo de lluvia"
+- Si dice "Prob. lluvia: 2%" significa BAJA probabilidad - di "2% de probabilidad"
+- Si dice "Prob. lluvia: 10%" significa BAJA probabilidad - di "10% de probabilidad"
+- Si dice "Prob. lluvia: 15%" significa BAJA-MODERADA probabilidad
+- Nunca hagas porcentajes mayores a 100% ni inventes valores no mencionados
+
+Pronóstico EXACTO que debes usar:
 
 ${daysInfo}
 
@@ -1265,7 +1274,8 @@ Genera una respuesta que:
 - NUNCA menciones "JSON" o "formato JSON" al usuario
 - ${esCalorExtremo ? `Sé HONESTO: con ${maxTempForecast}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
 - Sé natural, conversacional y varía tu estilo de respuesta
-- Presenta la información de forma fluida y amigable`;
+- Presenta la información de forma fluida y amigable
+- CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di`;
 
   try {
     const response = await fetch(GROQ_API_URL, {
