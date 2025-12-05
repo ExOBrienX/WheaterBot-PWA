@@ -86,6 +86,13 @@ ${tablaCalculos}
 🔹 NUNCA digas "formato JSON" o "te dejo la información en formato JSON"
 🔹 El JSON es SOLO para el sistema, el usuario NO lo ve
 🔹 ⚠️ IMPORTANTE: Si el usuario solo responde o comenta sobre datos ya mostrados, NO generes JSON
+🔹 🚨 CRÍTICO: Si generas JSON, SOLO devuelve el JSON, sin texto adicional
+   - INCORRECTO: "Déjame buscar el clima para ti. {"needs_weather":true, ...}"
+   - CORRECTO: {"needs_weather":true, ...}
+   - Si necesitas mostrar texto, hazlo SIN JSON - elige una opción:
+     * OPCIÓN A: Solo JSON (para buscar clima)
+     * OPCIÓN B: Solo texto conversacional (para responder preguntas)
+     * NUNCA mezcles ambos en la misma respuesta
 
 🔹 ⚠️ CRÍTICO - CIUDAD OBLIGATORIA:
    - Si el usuario NO menciona una ciudad específica en su pregunta, NO generes JSON
