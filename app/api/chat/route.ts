@@ -893,29 +893,10 @@ export async function POST(request: NextRequest) {
 
     // Verificar si la IA detectó que necesita datos del clima
     if (aiMessage.includes('needs_weather')) {
-      // ✅ NUEVO: Validación mejorada
-      if (!esSolicitudClimaValida(message)) {
-        console.log('⚠️ No es petición de clima - Respuesta conversacional (JSON encontrado pero validación falló)');
-        
-        // Limpiar cualquier JSON del mensaje
-        const cleanMessage = aiMessage.replace(/\{[^}]*"needs_weather"[^}]*\}/g, '').trim();
-        
-        console.log(`✂️ Mensaje limpio sin JSON: ${cleanMessage.substring(0, 150)}`);
-        
-        // Si el mensaje limpio está vacío o muy corto, generar respuesta apropiada
-        if (!cleanMessage || cleanMessage.length < 10) {
-          return NextResponse.json<ChatAPIResponse>({
-            message: 'Puedo darte el pronóstico de los próximos 7 días. ¿De qué ciudad quieres saber? 😊',
-            needsWeather: false
-          });
-        }
-        
-        return NextResponse.json<ChatAPIResponse>({
-          message: cleanMessage,
-          needsWeather: false
-        });
-      }
-
+      // 🆕 CAMBIO: Si la IA generó JSON needs_weather, confiar en ella
+      // La IA es más inteligente que nuestras regex para entender contexto
+      console.log(`✅ IA generó JSON needs_weather, confiando en su decisión`);
+      
       try {
         let cleanJson = aiMessage.trim();
         const jsonMatch = cleanJson.match(/\{[^{}]*"needs_weather"[^{}]*\}/);
@@ -930,6 +911,7 @@ export async function POST(request: NextRequest) {
         console.log(`✅ JSON parseado correctamente:`, weatherRequest);
         
         if (weatherRequest.needs_weather) {
+          console.log(`🌤️ needs_weather = true, procesando solicitud...`);
           console.log(`🌤️ needs_weather = true, procesando solicitud...`);
           // 🆕 Si no hay ciudad específica pero tenemos contexto anterior, usar esa ciudad
           if ((!weatherRequest.city || weatherRequest.city.trim() === '' || weatherRequest.city.toLowerCase() === 'genérica' || weatherRequest.city.toLowerCase() === 'generica') && lastCity) {
