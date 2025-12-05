@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { 
   ChatAPIRequest, 
   ChatAPIResponse, 
@@ -7,8 +8,12 @@ import type {
   ForecastData 
 } from '@/app/lib/types';
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+// Inicializar cliente de Gemini
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 // ============================================
 // SYSTEM PROMPT MEJORADO
@@ -606,6 +611,74 @@ function generarSugerenciasContextuales(
 }
 
 // ============================================
+// FUNCIÓN AUXILIAR PARA LLAMAR A IA
+// ============================================
+
+async function callAI(messages: Array<{ role: string; content: string }>, temperature: number = 0.4, maxTokens: number = 1500): Promise<string> {
+  // Intentar con Gemini primero
+  if (genAI) {
+    try {
+      console.log('🤖 Usando Gemini...');
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      
+      // Convertir formato OpenAI a formato Gemini
+      const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+      const conversationMessages = messages.filter(m => m.role !== 'system');
+      
+      const response = await model.generateContent({
+        contents: conversationMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }],
+        })),
+        systemInstruction: systemMessage,
+        generationConfig: {
+          temperature,
+          maxOutputTokens: maxTokens,
+          topP: 0.85,
+        },
+      });
+      
+      const textContent = response.response.text();
+      console.log('✅ Respuesta de Gemini obtenida');
+      return textContent;
+    } catch (error) {
+      console.error('⚠️ Error en Gemini:', error);
+      console.log('🔄 Fallback a Groq...');
+    }
+  }
+  
+  // Fallback a Groq si Gemini falla o no está configurado
+  if (!GROQ_API_KEY) {
+    throw new Error('No hay API keys configuradas (ni GEMINI_API_KEY ni GROQ_API_KEY)');
+  }
+  
+  console.log('🤖 Usando Groq (fallback)...');
+  const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      top_p: 0.85,
+    }),
+  });
+  
+  if (!groqResponse.ok) {
+    const errorData = await groqResponse.json();
+    throw new Error(errorData.error?.message || 'Error en Groq API');
+  }
+  
+  const groqData = await groqResponse.json();
+  console.log('✅ Respuesta de Groq obtenida');
+  return groqData.choices[0]?.message?.content || '';
+}
+
+// ============================================
 // HANDLER PRINCIPAL
 // ============================================
 
@@ -838,15 +911,9 @@ export async function POST(request: NextRequest) {
     if (esRespuestaCasual(message)) {
       console.log('💬 Respuesta casual detectada, modo conversacional (salto early)');
       
-      const casualResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
+      try {
+        const casualContent = await callAI(
+          [
             { 
               role: 'system', 
               content: 'Eres un asistente amigable y conversacional. Responde de forma natural.' 
@@ -857,15 +924,18 @@ export async function POST(request: NextRequest) {
             })),
             { role: 'user', content: message }
           ],
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
-      });
-
-      if (casualResponse.ok) {
-        const casualData = await casualResponse.json();
+          0.7,
+          500
+        );
+        
         return NextResponse.json<ChatAPIResponse>({
-          message: casualData.choices[0]?.message?.content || '¡Entendido! ¿En qué más puedo ayudarte? 😊',
+          message: casualContent || '¡Entendido! ¿En qué más puedo ayudarte? 😊',
+          needsWeather: false
+        });
+      } catch (error) {
+        console.error('Error en respuesta casual:', error);
+        return NextResponse.json<ChatAPIResponse>({
+          message: '¡Entendido! ¿En qué más puedo ayudarte? 😊',
           needsWeather: false
         });
       }
@@ -880,29 +950,17 @@ export async function POST(request: NextRequest) {
       { role: 'user' as const, content: message }
     ];
 
-    // Llamar a Groq API
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: messages,
-        temperature: 0.4,
-        max_tokens: 1500,
-        top_p: 0.85,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errorData = await groqResponse.json();
-      throw new Error(errorData.error?.message || 'Error al llamar a Groq API');
+    // Llamar a IA (Gemini con fallback a Groq)
+    let aiMessage = '';
+    try {
+      aiMessage = await callAI(messages, 0.4, 1500);
+    } catch (error) {
+      console.error('Error en IA:', error);
+      return NextResponse.json<ChatAPIResponse>(
+        { message: '⚠️ No pude procesar tu pregunta. Por favor intenta de nuevo.', needsWeather: false },
+        { status: 500 }
+      );
     }
-
-    const groqData = await groqResponse.json();
-    const aiMessage = groqData.choices[0]?.message?.content || '';
 
     console.log(`📨 Respuesta de Groq (primeros 200 chars): ${aiMessage.substring(0, 200)}`);
     console.log(`🔍 ¿Contiene JSON needs_weather?: ${aiMessage.includes('needs_weather')}`);
@@ -956,29 +1014,26 @@ Mensaje del usuario: "${message}"
 
 Responde en máximo 2 líneas, de forma amigable y variada.`;
 
-              const clarificationResponse = await fetch(GROQ_API_URL, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${GROQ_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'llama-3.3-70b-versatile',
-                  messages: [
+              try {
+                const clarificationContent = await callAI(
+                  [
                     { role: 'system', content: getSystemPrompt() },
                     ...messages.slice(-4),
                     { role: 'user', content: clarificationPrompt }
                   ],
-                  temperature: 0.8,
-                  max_tokens: 300,
-                }),
-              });
-
-              if (clarificationResponse.ok) {
-                const clarificationData = await clarificationResponse.json();
+                  0.8,
+                  300
+                );
+                
                 return NextResponse.json<ChatAPIResponse>({
-                  message: clarificationData.choices[0]?.message?.content || 
+                  message: clarificationContent || 
                           'Ya te di el clima de esa ciudad. ¿Quieres saber de otro día? 😊',
+                  needsWeather: false
+                });
+              } catch (error) {
+                console.error('Error en clarificación:', error);
+                return NextResponse.json<ChatAPIResponse>({
+                  message: 'Ya te di el clima de esa ciudad. ¿Quieres saber de otro día? 😊',
                   needsWeather: false
                 });
               }
@@ -1227,28 +1282,17 @@ Genera una respuesta que:
 - Sé natural, amigable y varía tu respuesta`;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: getSystemPrompt() },
-          ...previousMessages.slice(-4),
-          { role: 'user', content: weatherPrompt }
-        ],
-        temperature: 0.8,
-        max_tokens: 800,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.choices[0]?.message?.content || formatWeatherFallback(weatherData);
-    }
+    const responseContent = await callAI(
+      [
+        { role: 'system', content: getSystemPrompt() },
+        ...previousMessages.slice(-4),
+        { role: 'user', content: weatherPrompt }
+      ],
+      0.8,
+      800
+    );
+    
+    return responseContent || formatWeatherFallback(weatherData);
   } catch (error) {
     console.error('Error generating weather response:', error);
   }
@@ -1369,28 +1413,17 @@ Genera una respuesta que:
 - CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di`;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: getSystemPrompt() },
-          ...previousMessages.slice(-4),
-          { role: 'user', content: forecastPrompt }
-        ],
-        temperature: 0.8,
-        max_tokens: 1200,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.choices[0]?.message?.content || formatForecastFallback(forecastData, isSingleDay);
-    }
+    const responseContent = await callAI(
+      [
+        { role: 'system', content: getSystemPrompt() },
+        ...previousMessages.slice(-4),
+        { role: 'user', content: forecastPrompt }
+      ],
+      0.8,
+      1200
+    );
+    
+    return responseContent || formatForecastFallback(forecastData, isSingleDay);
   } catch (error) {
     console.error('Error generating forecast response:', error);
   }

@@ -9,7 +9,11 @@ export interface Message {
   timestamp: Date;
   weatherData?: WeatherData | ForecastData; 
 }
-
+interface CityWithCountry {
+  city: string;
+  country?: string;
+  fullName: string;
+}
 // ============================================
 // TIPOS PARA DATOS DEL CLIMA
 // ============================================
