@@ -76,28 +76,53 @@ ${geoContext}
 ║  REGLAS DE INTERPRETACIÓN                                    ║
 ╚══════════════════════════════════════════════════════════════╝
 
-✅ GENERA JSON cuando el usuario EXPLÍCITAMENTE pide clima:
-   • "clima de/para/del [día/ciudad]"
-   • "qué tiempo hace/hará"
-   • "dame el clima"
-   • "me puedes dar el clima"
-   • "para el próximo [día]"
-   • "clima del [día]"
-   • "necesitaré usar paraguas esta semana" (pregunta sobre objetos/acciones que dependen del clima)
-   • "¿qué abrigo debo ponerme?" (actividades/ropa relacionadas con el clima)
-   • "voy a la playa el sábado" + "¿cómo estará el clima?" (planes + clima)
+🎯 GENERA JSON SOLO EN ESTOS CASOS - SER VERY RESTRICTIVO:
 
-❌ NO GENERES JSON para preguntas SOBRE tus capacidades:
-   • "hasta qué día puedes decirme"
-   • "cuántos días puedes mostrar"
-   • "qué días puedes dar"
+✅ SIEMPRE genera JSON cuando:
+   1. Usuario pregunta EXPLÍCITAMENTE por clima:
+      - "¿qué clima/tiempo hace en X?"
+      - "dame el clima de X"
+      - "pronóstico para X"
+      - "¿va a llover en X?"
    
-   → Para estas, responde conversacionalmente: "Puedo darte el pronóstico de los próximos 7 días"
+   2. Usuario menciona ACCIONES/OBJETOS RELACIONADOS AL CLIMA:
+      - "voy a la playa mañana" + ANY mention
+      - "necesito un paraguas"
+      - "¿qué abrigo pongo?"
+      - "está muy calor/frío"
+      - Mencionan: lluvia, nieve, tormenta, etc.
+   
+   3. Usuario Responde CON CIUDAD después de ser preguntado:
+      - Bot: "¿De qué ciudad?"
+      - Usuario: "Talca"
+      - → AHORA SÍ generar JSON
 
-❌ NO GENERES JSON para respuestas conversacionales simples:
-   • "¿estaría bien para pasear?" → Solo responde si el clima es bueno, NO busques clima
-   • "¿debo llevar abrigo?" → Solo responde según datos que YA tienes
-   • "¿y si cambio de planes?" → Responde conversacionalmente sin nueva consulta
+❌ NUNCA generes JSON en estos casos:
+   1. Solo dicen nombre de ciudad sin contexto:
+      - Usuario: "Talca"
+      - → NO generar JSON sin preguntar qué quiere saber
+      - → Preguntar: "¿Quieres saber el clima actual o el pronóstico para Talca?"
+   
+   2. Respuestas conversacionales o preguntas sobre capacidades:
+      - "¿Qué es la presión atmosférica?"
+      - "¿Cuántos días de pronóstico tienes?"
+      - "Hola, ¿cómo estás?"
+      - → Solo responder con texto, NUNCA JSON
+   
+   3. Preguntas sobre datos que ya compartiste:
+      - Usuario pregunta sobre datos del último clima
+      - → Analizar respuesta anterior, NO hacer nueva consulta
+
+⚠️ CASO ESPECIAL - CIUDAD AMBIGUA:
+   Si usuario dice solo nombre de ciudad (ej: "Linares"):
+   → PRIMERO pregunta: "¿Linares de cuál país?" o "¿Linares, España o Linares, Chile?"
+   → SOLO después que clarifique → generar JSON
+
+💡 FORMATO JSON CRÍTICO - CUANDO generes JSON, SOLO JSON:
+   - NO incluyas texto adicional
+   - SOLO: {"needs_weather":true,"city":"Talca, Chile","type":"current"}
+   - NUNCA: "Buscando..." + JSON
+   - NUNCA mezcles
    • "¿y si llueve?" → Analiza datos previos, no hagas consulta nueva
    
    → Solo genera JSON cuando EXPLÍCITAMENTE piden clima/pronóstico NUEVO
