@@ -19,7 +19,7 @@ const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 // SYSTEM PROMPT MEJORADO
 // ============================================
 
-function getSystemPrompt(): string {
+function getSystemPrompt(userLocation?: { lat: number; lon: number }): string {
   const now = new Date();
   const hoy = now.getDay();
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -37,6 +37,10 @@ function getSystemPrompt(): string {
     return `  ${dia.padEnd(10)} → start_from: ${diasHasta}`;
   }).join('\n');
 
+  const geoContext = userLocation 
+    ? `📍 El usuario compartió su ubicación: ${userLocation.lat.toFixed(4)}°, ${userLocation.lon.toFixed(4)}°\n   Usa esto para RESOLVER ciudades ambiguas (ej: si pregunta por "Linares" cerca de Chile, asume Linares, Chile)`
+    : `📍 El usuario NO ha compartido su ubicación aún`;
+
   return `Eres WeatherBot, un asistente meteorológico conversacional y útil.
 
 ╔══════════════════════════════════════════════════════════════╗
@@ -47,6 +51,26 @@ function getSystemPrompt(): string {
 
 TABLA PARA ESTA SEMANA (HOY = ${dias[hoy].toUpperCase()}):
 ${tablaCalculos}
+
+${geoContext}
+
+╔══════════════════════════════════════════════════════════════╗
+║  GEOLOCALIZACIÓN - NUEVA FUNCIONALIDAD                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+ℹ️ El usuario PUEDE compartir su ubicación actual via botón 📍 en el gestor de caché
+✅ Si tienes la ubicación del usuario:
+   - USA la ubicación para resolver ciudades ambiguas automáticamente
+   - Ejemplo: Usuario en Chile pregunta por "Linares" → Resuelve como "Linares, Chile"
+   - Ejemplo: Usuario en España pregunta por "Linares" → Resuelve como "Linares, España"
+
+❌ Si NO tienes ubicación:
+   - Pide clarificación para ciudades ambiguas: "¿Linares de España o Linares de Chile?"
+
+💡 REGLA IMPORTANTE:
+   - La ubicación del usuario solo se usa para RESOLVER AMBIGÜEDAD
+   - Si el usuario menciona explícitamente otro lugar → SIEMPRE usa lo que menciona
+   - No asumas que pregunta por su ubicación actual sin mención explícita
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  REGLAS DE INTERPRETACIÓN                                    ║
@@ -726,6 +750,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 📍 Log de geolocalización del usuario
+    if (location) {
+      console.log(`📍 Usuario ubicado en: ${location.lat.toFixed(4)}°, ${location.lon.toFixed(4)}°`);
+    } else {
+      console.log(`📍 Usuario sin geolocalización compartida`);
+    }
+
     // 🆕 Obtener contexto horario basado en timezone del cache
     const timeContext = getTimeContext(cache?.userPreferences?.timezone);
 
@@ -967,7 +998,7 @@ export async function POST(request: NextRequest) {
     }
 
     const messages = [
-      { role: 'system', content: getSystemPrompt() },
+      { role: 'system', content: getSystemPrompt(location) },
       ...history.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content
@@ -1042,7 +1073,7 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
               try {
                 const clarificationContent = await callAI(
                   [
-                    { role: 'system', content: getSystemPrompt() },
+                    { role: 'system', content: getSystemPrompt(location) },
                     ...messages.slice(-4),
                     { role: 'user', content: clarificationPrompt }
                   ],
