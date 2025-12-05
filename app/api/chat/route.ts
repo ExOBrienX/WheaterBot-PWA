@@ -615,6 +615,10 @@ export async function POST(request: NextRequest) {
     // 🆕 Obtener contexto horario basado en timezone del cache
     const timeContext = getTimeContext(cache?.userPreferences?.timezone);
 
+    // 🆕 OBTENER ÚLTIMA CIUDAD DEL CONTEXTO
+    const lastCity = cache?.lastCities?.[0] || null;
+    console.log(`🏙️ Última ciudad en contexto: ${lastCity || 'ninguna'}`);
+
     // 🆕 NUEVO: Detectar si hay pregunta pendiente y el usuario responde "sí"
     const confirmacion = esConfirmacion(message);
     if (confirmacion.type === 'si' && cache?.pendingQuestion?.type === 'city_confirmation') {
@@ -917,6 +921,12 @@ export async function POST(request: NextRequest) {
         const weatherRequest: WeatherRequest = JSON.parse(cleanJson);
         
         if (weatherRequest.needs_weather) {
+          // 🆕 Si no hay ciudad específica pero tenemos contexto anterior, usar esa ciudad
+          if ((!weatherRequest.city || weatherRequest.city.trim() === '' || weatherRequest.city.toLowerCase() === 'genérica' || weatherRequest.city.toLowerCase() === 'generica') && lastCity) {
+            console.log(`🏙️ Usando última ciudad del contexto: ${lastCity}`);
+            weatherRequest.city = lastCity;
+          }
+          
           // Validación de duplicados
           const recentMessages = history.slice(-2);
           const lastWeatherMsg = recentMessages.find(msg => 
@@ -1033,6 +1043,18 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
               startFrom: startFrom,
               requestedDays: daysCount
             };
+
+            // 🆕 GUARDAR CIUDAD EN CACHE PARA CONTEXTO FUTURO
+            if (cache && weatherRequest.city) {
+              if (!cache.lastCities) {
+                cache.lastCities = [];
+              }
+              // Agregar ciudad al inicio si no está ya
+              if (!cache.lastCities.includes(weatherRequest.city)) {
+                cache.lastCities.unshift(weatherRequest.city);
+              }
+              console.log(`💾 Ciudad guardada en cache: ${weatherRequest.city}`);
+            }
 
             // 🆕 DETECTAR SI BUSCA PERÍODO ESPECÍFICO DEL DÍA
             const periodoDia = detectarPerioDoDelDia(message);
