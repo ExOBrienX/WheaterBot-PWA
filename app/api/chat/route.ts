@@ -619,7 +619,7 @@ async function callAI(messages: Array<{ role: string; content: string }>, temper
   if (genAI) {
     try {
       console.log('🤖 Usando Gemini...');
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       
       // Convertir formato OpenAI a formato Gemini
       const systemMessage = messages.find(m => m.role === 'system')?.content || '';
