@@ -78,6 +78,16 @@ ${tablaCalculos}
 🔹 NUNCA digas "formato JSON" o "te dejo la información en formato JSON"
 🔹 El JSON es SOLO para el sistema, el usuario NO lo ve
 
+🔹 ⚠️ CRÍTICO - CIUDAD OBLIGATORIA:
+   - Si el usuario NO menciona una ciudad específica en su pregunta, NO generes JSON
+   - SIEMPRE pregunta por la ciudad primero
+   - Ejemplos de "NO ciudad específica":
+     * "¿necesitaré paraguas esta semana?" (sin ciudad)
+     * "¿qué ropa debo usar?" (sin ciudad)
+     * "va a llover?" (sin ciudad)
+   - En estos casos, responde conversacionalmente pidiendo la ciudad
+   - Solo genera JSON CUANDO tienes ciudad específica
+
 🔹 CLIMA ACTUAL:
 {"needs_weather":true,"city":"ciudad","type":"current"}
 
@@ -905,6 +915,25 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
           if (startFrom < 0 || startFrom > 6) {
             return NextResponse.json<ChatAPIResponse>({
               message: `Solo tengo pronóstico para los próximos 7 días. ¿Quieres saber el clima de otro día? 🤔`,
+              needsWeather: false
+            });
+          }
+
+          // 🆕 VALIDACIÓN: Verificar si hay ciudad específica
+          if (!weatherRequest.city || weatherRequest.city.trim() === '' || weatherRequest.city.toLowerCase() === 'genérica' || weatherRequest.city.toLowerCase() === 'generica') {
+            console.log('⚠️ No hay ciudad específica - Pedirla al usuario');
+            
+            // Guardar pregunta pendiente
+            if (cache) {
+              cache.pendingQuestion = {
+                type: 'city_confirmation',
+                city: '',
+                timestamp: Date.now()
+              };
+            }
+            
+            return NextResponse.json<ChatAPIResponse>({
+              message: `Para darte un pronóstico preciso sobre el clima, necesito saber en qué ciudad te encuentras. ¿De dónde eres o en qué ciudad quieres saber el clima? 🌍`,
               needsWeather: false
             });
           }
