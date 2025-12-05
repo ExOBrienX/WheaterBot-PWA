@@ -1294,7 +1294,7 @@ async function generateForecastResponse(
 - Temperatura: ${day.temp.min}°C a ${day.temp.max}°C
 - Mañana: ${day.temp.morn}°C, Tarde: ${day.temp.day}°C, Noche: ${day.temp.night}°C
 - Clima: ${day.weather[0].description}
-- Prob. lluvia: ${(day.pop * 100).toFixed(0)}%
+- Prob. lluvia: ${day.pop.toFixed(0)}%
 - Humedad: ${day.humidity}%
 - Viento: ${day.speed} km/h`;
   }).join('\n\n');
@@ -1411,7 +1411,7 @@ function formatForecastFallback(forecast: ForecastData, singleDay: boolean = fal
                     index === 1 ? 'Mañana' : 
                     date.toLocaleDateString('es-ES', { weekday: 'long' });
     
-    const popPercentage = (day.pop * 100).toFixed(0);
+    const popPercentage = day.pop.toFixed(0);
     
     return `**${dayName}**: ${day.temp.min}°C - ${day.temp.max}°C, ${day.weather[0].description} (lluvia: ${popPercentage}%)`;
   }).join('\n');
