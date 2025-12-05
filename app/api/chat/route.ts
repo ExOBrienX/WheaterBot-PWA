@@ -710,7 +710,9 @@ export async function POST(request: NextRequest) {
           city: ciudadExtraida,
           lat: location?.lat,
           lon: location?.lon,
-          type: 'current'
+          type: 'forecast',
+          days: 7,
+          startFrom: 0
         }),
       });
 
@@ -727,23 +729,82 @@ export async function POST(request: NextRequest) {
         const enrichedWeatherData = {
           ...weatherData.data,
           startFrom: 0,
-          requestedDays: 1
+          requestedDays: 7
         };
 
-        const sugerencias = generarSugerenciasContextuales('current', 1, 0, ciudadExtraida, enrichedWeatherData.temp);
+        const sugerencias = generarSugerenciasContextuales('forecast', 7, 0, ciudadExtraida, 
+          Math.max(...enrichedWeatherData.list.map((d: any) => d.temp?.max || 0)));
 
-        const finalMessage = await generateWeatherResponse(
+        const finalMessage = await generateForecastResponse(
           enrichedWeatherData,
           ciudadExtraida,
-          [],
+          [...history.slice(-2)],
+          7,
+          0,
           sugerencias,
-          message,
+          `¿Cómo está el clima en ${ciudadExtraida}?`,
           timeContext
         );
 
         if (cache) {
           cache.pendingQuestion = undefined;
         }
+
+        return NextResponse.json<ChatAPIResponse>({
+          message: finalMessage,
+          needsWeather: true,
+          weatherData: enrichedWeatherData
+        });
+      }
+    }
+    
+    // 🆕 ALTERNATIVA: Si usuario solo dice ciudad (sin pregunta pendiente previa)
+    // pero es respuesta a solicitud de ciudad
+    if (ciudadExtraida && !cache?.pendingQuestion && esSolicitudClimaValida(message)) {
+      console.log(`📍 Ciudad extraída directamente (sin pregunta pendiente): ${ciudadExtraida}`);
+      
+      const weatherResponse = await fetch(`${request.nextUrl.origin}/api/weather`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          city: ciudadExtraida,
+          lat: location?.lat,
+          lon: location?.lon,
+          type: 'forecast',
+          days: 7,
+          startFrom: 0
+        }),
+      });
+
+      const weatherData = await weatherResponse.json();
+      
+      if (!weatherResponse.ok || !weatherData.success) {
+        return NextResponse.json<ChatAPIResponse>({
+          message: `❌ No encontré información de **"${ciudadExtraida}"**. ¿Quieres probar con otra ciudad? 🌍`,
+          needsWeather: false
+        });
+      }
+
+      if (weatherData.data) {
+        const enrichedWeatherData = {
+          ...weatherData.data,
+          startFrom: 0,
+          requestedDays: 7
+        };
+
+        const sugerencias = generarSugerenciasContextuales('forecast', 7, 0, ciudadExtraida,
+          Math.max(...enrichedWeatherData.list.map((d: any) => d.temp?.max || 0)));
+
+        const finalMessage = await generateForecastResponse(
+          enrichedWeatherData,
+          ciudadExtraida,
+          [...history.slice(-2)],
+          7,
+          0,
+          sugerencias,
+          message,
+          timeContext
+        );
 
         return NextResponse.json<ChatAPIResponse>({
           message: finalMessage,
