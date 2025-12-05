@@ -1483,6 +1483,14 @@ ${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${max
 - Si dice "Probabilidad de lluvia: 15%" significa BAJA-MODERADA probabilidad
 - Nunca hagas porcentajes mayores a 100% ni inventes valores no mencionados
 
+⚠️ FORMATO DE RESPUESTA - EXTREMADAMENTE IMPORTANTE:
+- NO uses markdown (sin asteriscos **, sin guiones --, sin nada)
+- Puedes usar viñetas (•) para listas
+- Puedes usar números (1., 2., 3.) para enumeraciones
+- Usa SOLO texto plano, leyendo natural
+- Si necesitas énfasis, usa MAYÚSCULAS o emojis, pero nunca markdown
+- NUNCA mezcles formatos
+
 Pronóstico EXACTO que debes usar:
 
 ${daysInfo}
@@ -1494,8 +1502,8 @@ Genera una respuesta que:
 2. ${isSingleDay ? 'Enfócate EN ESE DÍA ESPECÍFICO con detalles útiles' : 'Da un resumen general + detalles por día'}
 3. Da 1-2 recomendaciones ${esCalorExtremo ? 'REALISTAS para el calor extremo (NO seas ingenuo con altas temperaturas)' : mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
 4. Termina con UNA de estas preguntas (elige la más natural):
-   - "${sugerencias[0]}"
-   - "${sugerencias[1]}"
+   - ${sugerencias[0]}
+   - ${sugerencias[1]}
 
 ⚠️ IMPORTANTE: 
 - NUNCA menciones "JSON" o "formato JSON" al usuario
@@ -1503,10 +1511,7 @@ Genera una respuesta que:
 - Sé natural, conversacional y varía tu estilo de respuesta
 - Presenta la información de forma fluida y amigable
 - CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di
-- IMPORTANTE: En tu respuesta usa un formato claro y simple:
-  * Puedes usar viñetas (•) o enumeración (1., 2., 3.)
-  * NO mezcles asteriscos múltiples (**) con guiones (-)
-  * Haz la respuesta legible y bien estructurada`;
+- ⚠️ RECUERDA: TEXTO PLANO SOLAMENTE, sin markdown de ningún tipo`;
 
   try {
     const responseContent = await callAI(
