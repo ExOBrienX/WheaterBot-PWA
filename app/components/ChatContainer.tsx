@@ -104,11 +104,20 @@ export default function ChatContainer() {
       try {
         if (weatherData.list && Array.isArray(weatherData.list)) {
           // Es pronóstico
-          console.log(`💾 [IndexedDB] Guardando pronóstico para ${weatherData.city}`);
+          // 🆕 FIX: Usar la fecha del PRIMER día del pronóstico, no HOY
+          // Si startFrom=1 (mañana), la fecha base es mañana
+          // Si startFrom=0 (hoy), la fecha base es hoy
+          const today = new Date();
+          const startFromDays = weatherData.startFrom || 0;
+          const forecastDate = new Date(today);
+          forecastDate.setDate(forecastDate.getDate() + startFromDays);
+          const forecastDateStr = forecastDate.toISOString().split('T')[0];
+          
+          console.log(`💾 [IndexedDB] Guardando pronóstico para ${weatherData.city} (fecha base: ${forecastDateStr})`);
           await cacheForecast(
             weatherData.city,
             weatherData.country || '',
-            new Date().toISOString().split('T')[0],
+            forecastDateStr,
             weatherData
           );
         } else {

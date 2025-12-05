@@ -1441,13 +1441,14 @@ async function generateForecastResponse(
       dayName = dias[targetDayOfWeek].charAt(0).toUpperCase() + dias[targetDayOfWeek].slice(1);
     }
     
+    // 🆕 FIX: Usar guiones en lugar de asteriscos para evitar problemas de formato
     return `${dayName} (${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}):
-- Temperatura: ${day.temp.min}°C a ${day.temp.max}°C
-- Mañana: ${day.temp.morn}°C, Tarde: ${day.temp.day}°C, Noche: ${day.temp.night}°C
-- Clima: ${day.weather[0].description}
-- Prob. lluvia: ${day.pop.toFixed(0)}%
-- Humedad: ${day.humidity}%
-- Viento: ${day.speed} km/h`;
+─ Temperatura: ${day.temp.min}°C a ${day.temp.max}°C
+─ Períodos: Mañana ${day.temp.morn}°C | Tarde ${day.temp.day}°C | Noche ${day.temp.night}°C
+─ Clima: ${day.weather[0].description}
+─ Probabilidad de lluvia: ${day.pop.toFixed(0)}%
+─ Humedad: ${day.humidity}%
+─ Viento: ${day.speed} km/h`;
   }).join('\n\n');
 
   const isSingleDay = daysCount === 1;
@@ -1476,10 +1477,10 @@ ${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${max
 ⚠️ INSTRUCCIONES CRÍTICAS PARA ESTA RESPUESTA:
 - USA EXACTAMENTE los datos que te proporciono abajo
 - NO inventes datos ni probabilidades
-- Si dice "Prob. lluvia: 0%" significa SIN lluvia - di "sin lluvia" o "sin riesgo de lluvia"
-- Si dice "Prob. lluvia: 2%" significa BAJA probabilidad - di "2% de probabilidad"
-- Si dice "Prob. lluvia: 10%" significa BAJA probabilidad - di "10% de probabilidad"
-- Si dice "Prob. lluvia: 15%" significa BAJA-MODERADA probabilidad
+- Si dice "Probabilidad de lluvia: 0%" significa SIN lluvia - di "sin lluvia" o "sin riesgo de lluvia"
+- Si dice "Probabilidad de lluvia: 2%" significa BAJA probabilidad - di "2% de probabilidad"
+- Si dice "Probabilidad de lluvia: 10%" significa BAJA probabilidad - di "10% de probabilidad"
+- Si dice "Probabilidad de lluvia: 15%" significa BAJA-MODERADA probabilidad
 - Nunca hagas porcentajes mayores a 100% ni inventes valores no mencionados
 
 Pronóstico EXACTO que debes usar:
@@ -1501,7 +1502,11 @@ Genera una respuesta que:
 - ${esCalorExtremo ? `Sé HONESTO: con ${maxTempForecast}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
 - Sé natural, conversacional y varía tu estilo de respuesta
 - Presenta la información de forma fluida y amigable
-- CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di`;
+- CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di
+- IMPORTANTE: En tu respuesta usa un formato claro y simple:
+  * Puedes usar viñetas (•) o enumeración (1., 2., 3.)
+  * NO mezcles asteriscos múltiples (**) con guiones (-)
+  * Haz la respuesta legible y bien estructurada`;
 
   try {
     const responseContent = await callAI(
