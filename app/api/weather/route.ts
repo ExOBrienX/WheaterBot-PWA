@@ -5,6 +5,8 @@ import type {
   WeatherData,
   ForecastData
 } from '@/app/lib/types';
+// Nota: El caché se gestiona desde el cliente (IndexedDB)
+// Este servidor solo registra logs para debugging
 
 // URLs de Open-Meteo (sin API key necesaria!)
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -101,12 +103,19 @@ export async function POST(request: NextRequest) {
         list: fullForecast.list.slice(startFrom, startFrom + days)
       };
       
+      // ✅ LOG: Indicar que el pronóstico debería guardarse en caché desde el cliente
+      console.log(`💾 [Cliente debe guardar] Pronóstico para ${fullForecast.city}, ${fullForecast.country} en IndexedDB (6 horas expiry)`);
+      
       return NextResponse.json<WeatherAPIResponse>({ 
         success: true, 
         data: filteredForecast 
       });
     } else {
       const weatherData = await getCurrentWeather(finalLat, finalLon, cityName || city || '', countryName);
+      
+      // ✅ LOG: Indicar que el clima actual debería guardarse en caché desde el cliente
+      console.log(`💾 [Cliente debe guardar] Clima actual para ${weatherData.city}, ${weatherData.country} en IndexedDB (24 horas expiry)`);
+      
       return NextResponse.json<WeatherAPIResponse>({ success: true, data: weatherData });
     }
 

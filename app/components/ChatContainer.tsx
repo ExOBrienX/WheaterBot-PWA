@@ -5,6 +5,7 @@ import type { Message } from '@/app/lib/types';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import LoadingDots from './LoadingDots';
+import { cacheWeather, cacheForecast } from '@/app/lib/cache';
 
 // ============================================
 // INTERFAZ DE CACHE
@@ -77,8 +78,8 @@ export default function ChatContainer() {
     }
   }, []);
 
-  // 🆕 Función para actualizar cache
-  const updateCache = (weatherData?: any) => {
+  // 🆕 Función para actualizar cache - AHORA CON INDEXEDDB
+  const updateCache = async (weatherData?: any) => {
     if (weatherData?.city) {
       // Agregar ciudad a historial si no está
       cacheRef.current.lastCities = [
@@ -98,6 +99,31 @@ export default function ChatContainer() {
       cacheRef.current.weatherHistory = cacheRef.current.weatherHistory.filter(
         item => item.timestamp > oneHourAgo
       );
+
+      // 🆕 GUARDAR EN INDEXEDDB
+      try {
+        if (weatherData.list && Array.isArray(weatherData.list)) {
+          // Es pronóstico
+          console.log(`💾 [IndexedDB] Guardando pronóstico para ${weatherData.city}`);
+          await cacheForecast(
+            weatherData.city,
+            weatherData.country || '',
+            new Date().toISOString().split('T')[0],
+            weatherData
+          );
+        } else {
+          // Es clima actual
+          console.log(`💾 [IndexedDB] Guardando clima actual para ${weatherData.city}`);
+          await cacheWeather(
+            weatherData.city,
+            weatherData.country || '',
+            new Date().toISOString().split('T')[0],
+            weatherData
+          );
+        }
+      } catch (error) {
+        console.error('⚠️ Error guardando en IndexedDB:', error);
+      }
     }
     
     // 🆕 Limpiar pregunta pendiente cuando se obtiene el clima
@@ -147,9 +173,9 @@ export default function ChatContainer() {
 
       const data = await response.json();
 
-      // 🆕 Actualizar cache con nueva información
+      // 🆕 Actualizar cache con nueva información (AHORA ES ASYNC)
       if (data.weatherData) {
-        updateCache(data.weatherData);
+        await updateCache(data.weatherData);
       }
 
       // Agregar respuesta del asistente
