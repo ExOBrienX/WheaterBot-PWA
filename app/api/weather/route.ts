@@ -132,7 +132,7 @@ async function getCoordinates(city: string): Promise<{
   name: string; 
   country: string 
 } | null> {
-  const url = `${GEOCODING_URL}?name=${encodeURIComponent(city)}&count=1&language=es&format=json`;
+  const url = `${GEOCODING_URL}?name=${encodeURIComponent(city)}&count=10&language=es&format=json`;
   
   console.log(`🔍 Buscando coordenadas de: ${city}`);
 
@@ -142,11 +142,23 @@ async function getCoordinates(city: string): Promise<{
   const data = await response.json();
   
   if (!data.results || data.results.length === 0) {
+    console.log(`❌ No se encontraron resultados para: ${city}`);
     return null;
   }
 
+  // Retornar el primer resultado (más probable por población)
+  // pero registrar todos los resultados para análisis
   const result = data.results[0];
+  
   console.log(`✅ Encontrado: ${result.name}, ${result.country} (${result.latitude}, ${result.longitude})`);
+  
+  // Log de alternativas (para debug)
+  if (data.results.length > 1) {
+    console.log(`📍 Alternativas encontradas:`);
+    data.results.slice(0, 5).forEach((r: any, i: number) => {
+      console.log(`   ${i + 1}. ${r.name}, ${r.country} (${r.latitude}, ${r.longitude})`);
+    });
+  }
 
   return {
     latitude: result.latitude,

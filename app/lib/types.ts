@@ -263,3 +263,37 @@ export type WeatherCondition =
 export interface WeatherIconMap {
   [key: string]: string;
 }
+
+// ============================================
+// TIPOS PARA CACHÉ LOCAL (IndexedDB)
+// ============================================
+
+export interface CachedLocation {
+  id: string; // "city,country" - clave compuesta
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  timestamp: number; // cuándo se guardó
+  lastQueried: number; // última consulta
+}
+
+export interface CachedWeather {
+  id: string; // "city,country,date" - clave compuesta
+  city: string;
+  country: string;
+  date: string; // YYYY-MM-DD
+  weatherData: WeatherData;
+  timestamp: number;
+  expiresAt: number; // cuándo expira (24 horas después)
+}
+
+export interface CachedForecast {
+  id: string; // "city,country,startDate" - clave compuesta
+  city: string;
+  country: string;
+  startDate: string; // YYYY-MM-DD
+  forecastData: ForecastData;
+  timestamp: number;
+  expiresAt: number; // cuándo expira (6 horas después)
+}
