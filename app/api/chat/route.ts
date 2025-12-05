@@ -1018,7 +1018,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📨 Respuesta de Groq (primeros 200 chars): ${aiMessage.substring(0, 200)}`);
+    console.log(`📨 Respuesta de Gemini (primeros 200 chars): ${aiMessage.substring(0, 200)}`);
     console.log(`🔍 ¿Contiene JSON needs_weather?: ${aiMessage.includes('needs_weather')}`);
 
     // Verificar si la IA detectó que necesita datos del clima
@@ -1254,8 +1254,18 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
       }
     }
 
+    // 🆕 IMPORTANTE: Si aiMessage es SOLO JSON, no devolverlo al usuario
+    // El JSON fue procesado arriba, aquí solo devolvemos texto conversacional
+    let finalResponse = aiMessage.trim();
+    
+    // Si el mensaje completo es JSON, ignorarlo (ya fue procesado)
+    if (finalResponse.startsWith('{') && finalResponse.endsWith('}')) {
+      console.log('⚠️ Gemini devolvió SOLO JSON sin texto - usando respuesta por defecto');
+      finalResponse = '🔍 Buscando el clima para ti...';
+    }
+
     return NextResponse.json<ChatAPIResponse>({
-      message: aiMessage,
+      message: finalResponse,
       needsWeather: false
     });
 
