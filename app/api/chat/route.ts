@@ -54,6 +54,9 @@ ${tablaCalculos}
    • "me puedes dar el clima"
    • "para el próximo [día]"
    • "clima del [día]"
+   • "necesitaré usar paraguas esta semana" (pregunta sobre objetos/acciones que dependen del clima)
+   • "¿qué abrigo debo ponerme?" (actividades/ropa relacionadas con el clima)
+   • "voy a la playa el sábado" + "¿cómo estará el clima?" (planes + clima)
 
 ❌ NO GENERES JSON para preguntas SOBRE tus capacidades:
    • "hasta qué día puedes decirme"
@@ -231,13 +234,28 @@ function esSolicitudClimaValida(mensaje: string): boolean {
   }
   
   // Keywords FUERTES que confirman petición de clima REAL
+  // Incluye palabras directas sobre clima + actividades/objetos que dependen del clima
   const keywordsClima = [
     'clima', 'tiempo', 'temperatura', 'pronóstico', 'forecast',
     'va a llover', 'llover', 'lluvia', 'hace calor', 'hace frío',
     'qué tiempo', 'cómo está el', 'dame el clima', 'quiero saber el',
     'me das el clima', 'me puedes dar', 'dime el clima', 'cómo estará',
     'como estara', 'me das el', 'puedes darme el clima', 'dime cómo está',
-    'dime como esta', 'estará', 'estara', 'cómo está', 'como esta'
+    'dime como esta', 'estará', 'estara', 'cómo está', 'como esta',
+    // Palabras relacionadas con lluvia/paraguas
+    'paraguas', 'paragüas', 'lluvia', 'llover', 'mojarse', 'mojada',
+    'impermeable', 'mojado', 'mojar',
+    // Palabras relacionadas con frío/abrigo
+    'abrigo', 'chaqueta', 'suéter', 'sueter', 'frio', 'frío', 'helada',
+    'nieve', 'nieva', 'nevar', 'capa de nieve',
+    // Palabras relacionadas con calor
+    'calor', 'caluroso', 'ola de calor', 'sofocante',
+    // Palabras sobre actividades exteriores
+    'salir', 'paseo', 'caminar', 'caminata', 'vacaciones', 'viaje',
+    'playa', 'piscina', 'picnic', 'senderismo', 'excursión',
+    // Palabras sobre planes
+    'planes', 'plan', 'voy a', 'iré', 'necesitaré', 'necesitare',
+    'tendré', 'tendre', 'usaré', 'usare'
   ];
   
   // Detectar referencias temporales específicas (días de la semana, "próximo", etc)
@@ -251,7 +269,11 @@ function esSolicitudClimaValida(mensaje: string): boolean {
     /más tarde|en la tarde|esta tarde|por la tarde|de la tarde|luego|después/i,
     /esta noche|por la noche|en la noche|durante la noche|de noche/i,
     /madrugada|muy temprano|de madrugada|al amanecer/i,
-    /durante el d[ií]a|en el d[ií]a|lo que queda del d[ií]a/i
+    /durante el d[ií]a|en el d[ií]a|lo que queda del d[ií]a/i,
+    // Referencias a períodos como "esta semana", "el próximo mes"
+    /esta semana|próxima semana|semana que viene/i,
+    /todo el mes|durante el mes/i,
+    /varios días|varios d[ií]as|múltiples días/i
   ];
   
   const tieneReferenciaTemp = referenciasTemporales.some(pattern => pattern.test(mensaje));
