@@ -1471,13 +1471,17 @@ async function generateForecastResponse(
   timeContext?: TimeContext
 ): Promise<string> {
   
-  const daysToShow = Math.min(daysCount, forecastData.list.length);
+  // 🆕 CRÍTICO: Calcular correctamente cuántos días mostrar
+  const daysToShow = Math.min(daysCount, forecastData.list.length - startFrom);
   const now = new Date();
   const hoy = now.getDay();
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   
+  // 🆕 FILTRAR DATOS CORRECTAMENTE DESDE startFrom
+  const forecastSubset = forecastData.list.slice(startFrom, startFrom + daysToShow);
+  
   // ✅ Detectar si hay calor extremo en los días solicitados
-  const maxTempForecast = Math.max(...forecastData.list.slice(0, daysToShow).map(d => d.temp?.max || 0));
+  const maxTempForecast = Math.max(...forecastSubset.map(d => d.temp?.max || 0));
   const esCalorExtremo = maxTempForecast > 28;
   
   // 🆕 Contexto horario
@@ -1489,7 +1493,7 @@ async function generateForecastResponse(
   // ✅ NUEVO: Detectar si mencionó planes
   const mencionaPlanes = /\b(cita|reunión|salir|plan|voy|tengo que|iré|evento)\b/i.test(userMessage);
   
-  const daysInfo = forecastData.list.slice(0, daysToShow).map((day, index) => {
+  const daysInfo = forecastSubset.map((day, index) => {
     const date = new Date(day.dt * 1000);
     const realDayIndex = startFrom + index;
     
