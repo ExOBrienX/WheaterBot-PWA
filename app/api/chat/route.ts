@@ -1511,44 +1511,46 @@ ${mencionaPlanes ? '\n⚠️ El usuario mencionó planes, sé empático y útil 
 ${contextHora}
 ${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${maxTempForecast}°C). Las recomendaciones deben ser REALISTAS y CONSERVADORAS: protección solar, evitar horas pico, mantenerse hidratado, NO digas "es un día agradable".` : ''}
 
-⚠️ INSTRUCCIONES CRÍTICAS PARA ESTA RESPUESTA:
-- USA EXACTAMENTE los datos que te proporciono abajo
-- NO inventes datos ni probabilidades
-- Si dice "Probabilidad de lluvia: 0%" significa SIN lluvia - di "sin lluvia" o "sin riesgo de lluvia"
-- Si dice "Probabilidad de lluvia: 2%" significa BAJA probabilidad - di "2% de probabilidad"
-- Si dice "Probabilidad de lluvia: 10%" significa BAJA probabilidad - di "10% de probabilidad"
-- Si dice "Probabilidad de lluvia: 15%" significa BAJA-MODERADA probabilidad
-- Nunca hagas porcentajes mayores a 100% ni inventes valores no mencionados
+🚨 INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
 
-⚠️ FORMATO DE RESPUESTA - EXTREMADAMENTE IMPORTANTE:
-- NO uses markdown (sin asteriscos **, sin guiones --, sin nada)
-- Puedes usar viñetas (•) para listas
-- Puedes usar números (1., 2., 3.) para enumeraciones
-- Usa SOLO texto plano, leyendo natural
-- Si necesitas énfasis, usa MAYÚSCULAS o emojis, pero nunca markdown
-- NUNCA mezcles formatos
+1️⃣ DATOS EXACTOS - NO MODIFICAR:
+   - USA PALABRA POR PALABRA los valores que te doy abajo
+   - NO redondees temperaturas (si dice 26°C, dice 26°C, no 27°C)
+   - NO inventes valores intermedios
+   - NO "suavices" rangos de temperatura
+   - COPIA EXACTAMENTE: mín, máx, lluvia, clima
 
-Pronóstico EXACTO que debes usar:
+2️⃣ FORMATO - TEXTO PLANO SOLAMENTE:
+   - ❌ NO uses markdown (asteriscos **, guiones --)
+   - ✅ Puedes usar viñetas (•) para listas
+   - ✅ Puedes usar números (1., 2., 3.)
+   - ✅ Usa MAYÚSCULAS y emojis para énfasis
+
+3️⃣ INSTRUCCIÓN ANTI-ALUCINACIÓN:
+   - NO inventes probabilidades de lluvia
+   - Si dice 0% = "sin lluvia"
+   - Si dice 5% = "5% de probabilidad"
+   - Si dice 21% = "21% de probabilidad"
+   - NUNCA varíes estos números
+
+Datos EXACTOS que DEBES usar (cópialo tal cual):
 
 ${daysInfo}
 
 Mensaje original del usuario: "${userMessage}"
 
 Genera una respuesta que:
-1. ${mencionaPlanes ? 'Primero reconozca sus planes brevemente' : 'Use emoji apropiado'}
-2. ${isSingleDay ? 'Enfócate EN ESE DÍA ESPECÍFICO con detalles útiles' : 'Da un resumen general + detalles por día'}
-3. Da 1-2 recomendaciones ${esCalorExtremo ? 'REALISTAS para el calor extremo (NO seas ingenuo con altas temperaturas)' : mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
-4. Termina con UNA de estas preguntas (elige la más natural):
-   - ${sugerencias[0]}
-   - ${sugerencias[1]}
+1. ${mencionaPlanes ? 'Reconozca sus planes brevemente' : 'Use emoji apropiado'}
+2. ${isSingleDay ? 'Enfócate EN ESE DÍA con todos los detalles' : 'Presente cada DÍA con sus DATOS EXACTOS'}
+3. Da 1-2 recomendaciones prácticas
+4. Termina con UNA pregunta natural
 
-⚠️ IMPORTANTE: 
-- NUNCA menciones "JSON" o "formato JSON" al usuario
-- ${esCalorExtremo ? `Sé HONESTO: con ${maxTempForecast}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
-- Sé natural, conversacional y varía tu estilo de respuesta
-- Presenta la información de forma fluida y amigable
-- CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di
-- ⚠️ RECUERDA: TEXTO PLANO SOLAMENTE, sin markdown de ningún tipo`;
+⚠️ RECORDATORIOS FINALES:
+- CITA LOS NÚMEROS EXACTAMENTE como aparecen arriba
+- Si los datos dicen "Sábado: 13°C a 30°C", DEBES decir "13°C a 30°C"
+- NO aproximes (13.2 NO se vuelve 13, se mantiene como aparece)
+- TEXTO PLANO: sin **, sin --, solo emojis y mayúsculas
+- NO olvides las probabilidades de lluvia exactas`;
 
   try {
     const responseContent = await callAI(
@@ -1557,7 +1559,7 @@ Genera una respuesta que:
         ...previousMessages.slice(-4),
         { role: 'user', content: forecastPrompt }
       ],
-      0.8,
+      0.2,  // 🆕 MUCHO MÁS BAJO para forzar literalidad
       1200
     );
     
