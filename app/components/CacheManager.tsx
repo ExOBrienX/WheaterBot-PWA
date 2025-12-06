@@ -128,11 +128,13 @@ export default function CacheManager() {
   const totalCached = cacheStats.locations + cacheStats.weather + cacheStats.forecast;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    // 1. CAMBIO AQUÍ: 'right-6' -> 'left-6'
+    <div className="fixed bottom-6 left-6 z-50">
+      
       {/* Botón flotante */}
       <button
         onClick={() => setShowCacheInfo(!showCacheInfo)}
-        className="w-14 h-14 bg-linear-to-br from-purple-500 to-blue-500 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-xl hover:shadow-xl transition-shadow"
+        className="w-14 h-14 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-xl hover:shadow-xl transition-shadow"
         title="Gestor de caché"
       >
         💾
@@ -140,7 +142,8 @@ export default function CacheManager() {
 
       {/* Panel de información */}
       {showCacheInfo && (
-        <div className="absolute bottom-20 right-0 bg-slate-800 text-white rounded-lg shadow-2xl p-4 w-96 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 max-h-96 overflow-y-auto">
+        // 2. CAMBIO AQUÍ: 'right-0' -> 'left-0' (Para que el panel se alinee bien)
+        <div className="absolute bottom-20 left-0 bg-slate-800 text-white rounded-lg shadow-2xl p-4 w-96 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 max-h-96 overflow-y-auto">
           <div className="space-y-3">
             {/* Título */}
             <div className="flex items-center justify-between">
