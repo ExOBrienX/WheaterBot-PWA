@@ -185,27 +185,11 @@ ${geoContext}
 🔹 CLIMA ACTUAL:
 {"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"current"}
 
-🔹 PRONÓSTICO DÍA ESPECÍFICO (si piden MAÑANA, PASADO MAÑANA, o un día concreto):
+🔹 PRONÓSTICO DÍA ESPECÍFICO:
 {"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":1,"start_from":N}
-   - start_from=0 para HOY
-   - start_from=1 para MAÑANA
-   - start_from=2 para PASADO MAÑANA
-   - start_from=N para días futuros
 
-🔹 PRONÓSTICO SEMANA COMPLETA (si piden SEMANA, PRÓXIMOS 7 DÍAS, TODO EL MES, etc.):
-{"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":7,"start_from":0}
-   - SIEMPRE days_count=7 para semana
-   - SIEMPRE start_from=0 para empezar desde HOY
-   - Si piden "a partir de mañana": start_from=1
-   
-⚠️ CRÍTICO - CUANDO USAR CADA TIPO:
-   - Usuario: "¿Mañana?" → days_count=1, start_from=1
-   - Usuario: "¿Pasado mañana?" → days_count=1, start_from=2
-   - Usuario: "¿El viernes?" → days_count=1, start_from=[X]
-   - Usuario: "¿Próxima semana?" → days_count=7, start_from=0
-   - Usuario: "¿La semana completa?" → days_count=7, start_from=0
-   - Usuario: "¿De aquí a 7 días?" → days_count=7, start_from=0
-   - Usuario: "¿A partir de mañana la semana?" → days_count=7, start_from=1
+🔹 PRONÓSTICO MÚLTIPLES DÍAS:
+{"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":N,"start_from":0}
 
 PERSONALIDAD:
 - Natural y conversacional
@@ -1169,41 +1153,6 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             });
           }
 
-          // 🆕 DETERMINAR TIPO DE PRONÓSTICO PARA CACHE
-          // Para identificar si es un día específico o la semana completa
-          let forecastCacheType = 'day'; // default
-          if (weatherRequest.type === 'forecast') {
-            if (daysCount === 7 && startFrom === 0) {
-              forecastCacheType = 'week'; // Semana completa (hoy + 6 días)
-            } else if (daysCount === 7 && startFrom > 0) {
-              forecastCacheType = 'week-future'; // Semana futura (a partir de mañana)
-            } else {
-              forecastCacheType = 'day'; // Un día específico
-            }
-          }
-
-          // 🆕 VERIFICAR SI YA TENEMOS ESTE CLIMA EN CACHE (EN LOS ÚLTIMOS 15 MINUTOS)
-          // Ahora diferenciamos entre "día específico" y "semana"
-          const yaFueBuscado = cache?.weatherHistory?.some(item => 
-            item.city.toLowerCase() === weatherRequest.city.toLowerCase() &&
-            item.type === weatherRequest.type &&
-            item.forecastType === forecastCacheType && // ← NUEVO: tipo de pronóstico
-            // Verificar que fue en los últimos 15 minutos
-            (Date.now() - item.timestamp) < 15 * 60 * 1000
-          );
-
-          if (yaFueBuscado) {
-            console.log(`⚠️ Ya se buscó recientemente: ${weatherRequest.city} (${weatherRequest.type} - ${forecastCacheType})`);
-            console.log(`⚠️ Bloqueando búsqueda duplicada dentro de 15 minutos`);
-            
-            // Enviar error diferente
-            return NextResponse.json<ChatAPIResponse>({
-              message: `Ya te di el pronóstico de ${weatherRequest.city} hace poco. ¿Te gustaría:\n\n• Saber del clima de OTRA CIUDAD\n• Ver un DÍA DIFERENTE del pronóstico\n• Más detalles sobre el clima actual\n\n¿En qué te puedo ayudar?`,
-              needsWeather: false
-            });
-          }
-
-          console.log(`🌤️ Llamando a /api/weather para: ${weatherRequest.city}`);
           const weatherResponse = await fetch(`${request.nextUrl.origin}/api/weather`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1230,20 +1179,6 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             }
             
             throw new Error(errorMsg);
-          }
-
-          // 🆕 REGISTRAR EN HISTORIAL QUE SE CONSULTÓ EXITOSAMENTE
-          if (cache) {
-            if (!cache.weatherHistory) {
-              cache.weatherHistory = [];
-            }
-            cache.weatherHistory.push({
-              city: weatherRequest.city,
-              timestamp: Date.now(),
-              type: weatherRequest.type,
-              forecastType: weatherRequest.type === 'forecast' ? (forecastCacheType as 'day' | 'week' | 'week-future') : undefined // 🆕
-            });
-            console.log(`✅ Registrado en historial: ${weatherRequest.city} (${weatherRequest.type}${weatherRequest.type === 'forecast' ? ` - ${forecastCacheType}` : ''})`);
           }
           
           if (weatherData.data) {
@@ -1471,17 +1406,13 @@ async function generateForecastResponse(
   timeContext?: TimeContext
 ): Promise<string> {
   
-  // 🆕 CRÍTICO: Calcular correctamente cuántos días mostrar
-  const daysToShow = Math.min(daysCount, forecastData.list.length - startFrom);
+  const daysToShow = Math.min(daysCount, forecastData.list.length);
   const now = new Date();
   const hoy = now.getDay();
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   
-  // 🆕 FILTRAR DATOS CORRECTAMENTE DESDE startFrom
-  const forecastSubset = forecastData.list.slice(startFrom, startFrom + daysToShow);
-  
   // ✅ Detectar si hay calor extremo en los días solicitados
-  const maxTempForecast = Math.max(...forecastSubset.map(d => d.temp?.max || 0));
+  const maxTempForecast = Math.max(...forecastData.list.slice(0, daysToShow).map(d => d.temp?.max || 0));
   const esCalorExtremo = maxTempForecast > 28;
   
   // 🆕 Contexto horario
@@ -1493,7 +1424,7 @@ async function generateForecastResponse(
   // ✅ NUEVO: Detectar si mencionó planes
   const mencionaPlanes = /\b(cita|reunión|salir|plan|voy|tengo que|iré|evento)\b/i.test(userMessage);
   
-  const daysInfo = forecastSubset.map((day, index) => {
+  const daysInfo = forecastData.list.slice(0, daysToShow).map((day, index) => {
     const date = new Date(day.dt * 1000);
     const realDayIndex = startFrom + index;
     
@@ -1510,14 +1441,13 @@ async function generateForecastResponse(
       dayName = dias[targetDayOfWeek].charAt(0).toUpperCase() + dias[targetDayOfWeek].slice(1);
     }
     
-    // 🆕 FIX: Usar guiones en lugar de asteriscos para evitar problemas de formato
     return `${dayName} (${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}):
-─ Temperatura: ${day.temp.min}°C a ${day.temp.max}°C
-─ Períodos: Mañana ${day.temp.morn}°C | Tarde ${day.temp.day}°C | Noche ${day.temp.night}°C
-─ Clima: ${day.weather[0].description}
-─ Probabilidad de lluvia: ${day.pop.toFixed(0)}%
-─ Humedad: ${day.humidity}%
-─ Viento: ${day.speed} km/h`;
+- Temperatura: ${day.temp.min}°C a ${day.temp.max}°C
+- Mañana: ${day.temp.morn}°C, Tarde: ${day.temp.day}°C, Noche: ${day.temp.night}°C
+- Clima: ${day.weather[0].description}
+- Prob. lluvia: ${day.pop.toFixed(0)}%
+- Humedad: ${day.humidity}%
+- Viento: ${day.speed} km/h`;
   }).join('\n\n');
 
   const isSingleDay = daysCount === 1;
@@ -1543,46 +1473,35 @@ ${mencionaPlanes ? '\n⚠️ El usuario mencionó planes, sé empático y útil 
 ${contextHora}
 ${esCalorExtremo ? `\n⚠️ CONTEXTO IMPORTANTE: Hay CALOR EXTREMO (hasta ${maxTempForecast}°C). Las recomendaciones deben ser REALISTAS y CONSERVADORAS: protección solar, evitar horas pico, mantenerse hidratado, NO digas "es un día agradable".` : ''}
 
-🚨 INSTRUCCIONES CRÍTICAS - DEBES SEGUIR AL PIE DE LA LETRA:
+⚠️ INSTRUCCIONES CRÍTICAS PARA ESTA RESPUESTA:
+- USA EXACTAMENTE los datos que te proporciono abajo
+- NO inventes datos ni probabilidades
+- Si dice "Prob. lluvia: 0%" significa SIN lluvia - di "sin lluvia" o "sin riesgo de lluvia"
+- Si dice "Prob. lluvia: 2%" significa BAJA probabilidad - di "2% de probabilidad"
+- Si dice "Prob. lluvia: 10%" significa BAJA probabilidad - di "10% de probabilidad"
+- Si dice "Prob. lluvia: 15%" significa BAJA-MODERADA probabilidad
+- Nunca hagas porcentajes mayores a 100% ni inventes valores no mencionados
 
-1️⃣ DATOS EXACTOS - NO MODIFICAR:
-   - USA PALABRA POR PALABRA los valores que te doy abajo
-   - NO redondees temperaturas (si dice 26°C, dice 26°C, no 27°C)
-   - NO inventes valores intermedios
-   - NO "suavices" rangos de temperatura
-   - COPIA EXACTAMENTE: mín, máx, lluvia, clima
-
-2️⃣ FORMATO - TEXTO PLANO SOLAMENTE:
-   - ❌ NO uses markdown (asteriscos **, guiones --)
-   - ✅ Puedes usar viñetas (•) para listas
-   - ✅ Puedes usar números (1., 2., 3.)
-   - ✅ Usa MAYÚSCULAS y emojis para énfasis
-
-3️⃣ INSTRUCCIÓN ANTI-ALUCINACIÓN:
-   - NO inventes probabilidades de lluvia
-   - Si dice 0% = "sin lluvia"
-   - Si dice 5% = "5% de probabilidad"
-   - Si dice 21% = "21% de probabilidad"
-   - NUNCA varíes estos números
-
-Datos EXACTOS que DEBES usar (cópialo tal cual):
+Pronóstico EXACTO que debes usar:
 
 ${daysInfo}
 
 Mensaje original del usuario: "${userMessage}"
 
 Genera una respuesta que:
-1. ${mencionaPlanes ? 'Reconozca sus planes brevemente' : 'Use emoji apropiado'}
-2. ${isSingleDay ? 'Enfócate EN ESE DÍA con todos los detalles' : 'Presente cada DÍA con sus DATOS EXACTOS'}
-3. Da 1-2 recomendaciones prácticas
-4. Termina con UNA pregunta natural
+1. ${mencionaPlanes ? 'Primero reconozca sus planes brevemente' : 'Use emoji apropiado'}
+2. ${isSingleDay ? 'Enfócate EN ESE DÍA ESPECÍFICO con detalles útiles' : 'Da un resumen general + detalles por día'}
+3. Da 1-2 recomendaciones ${esCalorExtremo ? 'REALISTAS para el calor extremo (NO seas ingenuo con altas temperaturas)' : mencionaPlanes ? 'relacionadas con sus planes' : 'prácticas'}
+4. Termina con UNA de estas preguntas (elige la más natural):
+   - "${sugerencias[0]}"
+   - "${sugerencias[1]}"
 
-⚠️ RECORDATORIOS FINALES:
-- CITA LOS NÚMEROS EXACTAMENTE como aparecen arriba
-- Si los datos dicen "Sábado: 13°C a 30°C", DEBES decir "13°C a 30°C"
-- NO aproximes (13.2 NO se vuelve 13, se mantiene como aparece)
-- TEXTO PLANO: sin **, sin --, solo emojis y mayúsculas
-- NO olvides las probabilidades de lluvia exactas`;
+⚠️ IMPORTANTE: 
+- NUNCA menciones "JSON" o "formato JSON" al usuario
+- ${esCalorExtremo ? `Sé HONESTO: con ${maxTempForecast}°C es calor EXTREMO, no minimices. Recomienda cuidados.` : 'Sé natural'}
+- Sé natural, conversacional y varía tu estilo de respuesta
+- Presenta la información de forma fluida y amigable
+- CITA EXACTAMENTE los porcentajes y descripciones de los datos que te di`;
 
   try {
     const responseContent = await callAI(
@@ -1591,7 +1510,7 @@ Genera una respuesta que:
         ...previousMessages.slice(-4),
         { role: 'user', content: forecastPrompt }
       ],
-      0.2,  // 🆕 MUCHO MÁS BAJO para forzar literalidad
+      0.8,
       1200
     );
     
