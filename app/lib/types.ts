@@ -103,6 +103,7 @@ export interface ChatAPIRequest {
       city: string;
       timestamp: number;
       type: 'current' | 'forecast';
+      forecastType?: 'day' | 'week' | 'week-future'; // 🆕 Para diferenciar pronósticos
     }>;
     userPreferences?: {
       timezone?: number;

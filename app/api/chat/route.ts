@@ -1153,20 +1153,31 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             });
           }
 
+          // 🆕 DETERMINAR TIPO DE PRONÓSTICO PARA CACHE
+          // Para identificar si es un día específico o la semana completa
+          let forecastCacheType = 'day'; // default
+          if (weatherRequest.type === 'forecast') {
+            if (daysCount === 7 && startFrom === 0) {
+              forecastCacheType = 'week'; // Semana completa (hoy + 6 días)
+            } else if (daysCount === 7 && startFrom > 0) {
+              forecastCacheType = 'week-future'; // Semana futura (a partir de mañana)
+            } else {
+              forecastCacheType = 'day'; // Un día específico
+            }
+          }
+
           // 🆕 VERIFICAR SI YA TENEMOS ESTE CLIMA EN CACHE (EN LOS ÚLTIMOS 15 MINUTOS)
+          // Ahora diferenciamos entre "día específico" y "semana"
           const yaFueBuscado = cache?.weatherHistory?.some(item => 
             item.city.toLowerCase() === weatherRequest.city.toLowerCase() &&
             item.type === weatherRequest.type &&
-            // Si es pronóstico, verificar que es del mismo startFrom
-            (weatherRequest.type === 'current' || 
-              // Para pronósticos, el cache se gestiona por fecha, así que si pidió el mismo día es el mismo
-              true) &&
+            item.forecastType === forecastCacheType && // ← NUEVO: tipo de pronóstico
             // Verificar que fue en los últimos 15 minutos
             (Date.now() - item.timestamp) < 15 * 60 * 1000
           );
 
           if (yaFueBuscado) {
-            console.log(`⚠️ Ya se buscó recientemente: ${weatherRequest.city} (${weatherRequest.type})`);
+            console.log(`⚠️ Ya se buscó recientemente: ${weatherRequest.city} (${weatherRequest.type} - ${forecastCacheType})`);
             console.log(`⚠️ Bloqueando búsqueda duplicada dentro de 15 minutos`);
             
             // Enviar error diferente
@@ -1213,9 +1224,10 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             cache.weatherHistory.push({
               city: weatherRequest.city,
               timestamp: Date.now(),
-              type: weatherRequest.type
+              type: weatherRequest.type,
+              forecastType: weatherRequest.type === 'forecast' ? (forecastCacheType as 'day' | 'week' | 'week-future') : undefined // 🆕
             });
-            console.log(`✅ Registrado en historial: ${weatherRequest.city} (${weatherRequest.type})`);
+            console.log(`✅ Registrado en historial: ${weatherRequest.city} (${weatherRequest.type}${weatherRequest.type === 'forecast' ? ` - ${forecastCacheType}` : ''})`);
           }
           
           if (weatherData.data) {
