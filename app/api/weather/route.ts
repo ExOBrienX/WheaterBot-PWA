@@ -159,13 +159,13 @@ async function getCoordinates(city: string): Promise<{
   // pero registrar todos los resultados para análisis
   const result = data.results[0];
   
-  console.log(`✅ Encontrado: ${result.name}, ${result.country} (${result.latitude}, ${result.longitude})`);
+  console.log(`✅ Encontrado: ${result.name}, ${result.country} (${result.latitude.toFixed(4)}, ${result.longitude.toFixed(4)})`);
   
   // Log de alternativas (para debug)
   if (data.results.length > 1) {
     console.log(`📍 Alternativas encontradas:`);
     data.results.slice(0, 5).forEach((r: any, i: number) => {
-      console.log(`   ${i + 1}. ${r.name}, ${r.country} (${r.latitude}, ${r.longitude})`);
+      console.log(`   ${i + 1}. ${r.name}, ${r.country} (${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)})`);
     });
   }
 

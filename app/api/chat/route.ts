@@ -1153,6 +1153,30 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             });
           }
 
+          // 🆕 VERIFICAR SI YA TENEMOS ESTE CLIMA EN CACHE (EN LOS ÚLTIMOS 15 MINUTOS)
+          const yaFueBuscado = cache?.weatherHistory?.some(item => 
+            item.city.toLowerCase() === weatherRequest.city.toLowerCase() &&
+            item.type === weatherRequest.type &&
+            // Si es pronóstico, verificar que es del mismo startFrom
+            (weatherRequest.type === 'current' || 
+              // Para pronósticos, el cache se gestiona por fecha, así que si pidió el mismo día es el mismo
+              true) &&
+            // Verificar que fue en los últimos 15 minutos
+            (Date.now() - item.timestamp) < 15 * 60 * 1000
+          );
+
+          if (yaFueBuscado) {
+            console.log(`⚠️ Ya se buscó recientemente: ${weatherRequest.city} (${weatherRequest.type})`);
+            console.log(`⚠️ Bloqueando búsqueda duplicada dentro de 15 minutos`);
+            
+            // Enviar error diferente
+            return NextResponse.json<ChatAPIResponse>({
+              message: `Ya te di el pronóstico de ${weatherRequest.city} hace poco. ¿Te gustaría:\n\n• Saber del clima de OTRA CIUDAD\n• Ver un DÍA DIFERENTE del pronóstico\n• Más detalles sobre el clima actual\n\n¿En qué te puedo ayudar?`,
+              needsWeather: false
+            });
+          }
+
+          console.log(`🌤️ Llamando a /api/weather para: ${weatherRequest.city}`);
           const weatherResponse = await fetch(`${request.nextUrl.origin}/api/weather`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1179,6 +1203,19 @@ Responde en máximo 2 líneas, de forma amigable y variada.`;
             }
             
             throw new Error(errorMsg);
+          }
+
+          // 🆕 REGISTRAR EN HISTORIAL QUE SE CONSULTÓ EXITOSAMENTE
+          if (cache) {
+            if (!cache.weatherHistory) {
+              cache.weatherHistory = [];
+            }
+            cache.weatherHistory.push({
+              city: weatherRequest.city,
+              timestamp: Date.now(),
+              type: weatherRequest.type
+            });
+            console.log(`✅ Registrado en historial: ${weatherRequest.city} (${weatherRequest.type})`);
           }
           
           if (weatherData.data) {
