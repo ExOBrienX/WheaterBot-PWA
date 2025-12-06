@@ -127,138 +127,143 @@ export default function CacheManager() {
 
   const totalCached = cacheStats.locations + cacheStats.weather + cacheStats.forecast;
 
-  return (
-    // 1. CAMBIO AQUÍ: 'right-6' -> 'left-6'
-    <div className="fixed bottom-6 left-6 z-50">
-      
-      {/* Botón flotante */}
-      <button
-        onClick={() => setShowCacheInfo(!showCacheInfo)}
-        className="w-14 h-14 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-xl hover:shadow-xl transition-shadow"
-        title="Gestor de caché"
-      >
-        💾
-      </button>
+ return (
+  // CONTENEDOR PRINCIPAL: 
+  // - Móvil: Arriba a la derecha (top-3 right-4)
+  // - PC: Abajo a la derecha (md:bottom-6 md:right-6)
+  <div className="fixed z-50 right-4 top-3 md:top-auto md:bottom-6 md:right-6">
+    
+    {/* Botón flotante (Icono del disquete) */}
+    <button
+      onClick={() => setShowCacheInfo(!showCacheInfo)}
+      className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-sm md:text-xl hover:shadow-xl transition-shadow"
+      title="Gestor de caché"
+    >
+      💾
+    </button>
 
-      {/* Panel de información */}
-      {showCacheInfo && (
-        // 2. CAMBIO AQUÍ: 'right-0' -> 'left-0' (Para que el panel se alinee bien)
-        <div className="absolute bottom-20 left-0 bg-slate-800 text-white rounded-lg shadow-2xl p-4 w-96 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 max-h-96 overflow-y-auto">
-          <div className="space-y-3">
-            {/* Título */}
+    {/* Panel de información */}
+    {showCacheInfo && (
+      // PANEL DESPLEGABLE:
+      // - Móvil: Se abre hacia ABAJO (top-16)
+      // - PC: Se abre hacia ARRIBA (md:bottom-20)
+      <div className="absolute right-0 bg-slate-800 text-white rounded-lg shadow-2xl p-4 w-80 md:w-96 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 max-h-[80vh] overflow-y-auto top-16 md:top-auto md:bottom-20">
+        <div className="space-y-3">
+          
+          {/* Título y botón cerrar */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-lg">📊 Gestor de Caché</h3>
+            <button
+              onClick={() => setShowCacheInfo(false)}
+              className="text-gray-400 hover:text-white text-xl"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Auto-refresh toggle */}
+          <div className="bg-slate-700 rounded p-2 flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span>🔄 Auto-actualizar (2s)</span>
+            </label>
+            <button
+              onClick={loadCacheStats}
+              className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium"
+            >
+              ↻ Ahora
+            </button>
+          </div>
+
+          {/* Estadísticas */}
+          <div className="bg-slate-700 rounded p-3 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-300">📍 Ubicaciones:</span>
+              <span className="font-semibold text-green-400">{cacheStats.locations}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-300">🌡️ Clima Actual:</span>
+              <span className="font-semibold text-orange-400">{cacheStats.weather}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-300">📈 Pronósticos:</span>
+              <span className="font-semibold text-cyan-400">{cacheStats.forecast}</span>
+            </div>
+            <div className="border-t border-slate-600 pt-2 mt-2 flex justify-between text-sm font-bold">
+              <span>Total:</span>
+              <span className="text-purple-400">{totalCached}</span>
+            </div>
+          </div>
+
+          {/* Geolocalización */}
+          <div className="bg-green-900/30 border border-green-700 rounded p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg">📊 Gestor de Caché</h3>
-              <button
-                onClick={() => setShowCacheInfo(false)}
-                className="text-gray-400 hover:text-white text-xl"
-              >
-                ✕
-              </button>
+              <span className="font-semibold text-green-300">📍 Ubicación Actual</span>
+              {geoStatus === 'loading' && <span className="text-xs text-gray-300">⏳ Detectando...</span>}
+              {geoStatus === 'success' && <span className="text-xs text-green-300">✅ Obtenida</span>}
+              {geoStatus === 'error' && <span className="text-xs text-red-300">❌ Error</span>}
             </div>
-
-            {/* Auto-refresh toggle */}
-            <div className="bg-slate-700 rounded p-2 flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <span>🔄 Auto-actualizar (2s)</span>
-              </label>
-              <button
-                onClick={loadCacheStats}
-                className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium"
-              >
-                ↻ Ahora
-              </button>
-            </div>
-
-            {/* Estadísticas */}
-            <div className="bg-slate-700 rounded p-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-300">📍 Ubicaciones:</span>
-                <span className="font-semibold text-green-400">{cacheStats.locations}</span>
+            
+            {geoLocation ? (
+              <div className="text-xs text-gray-200 space-y-1">
+                <p>🗺️ Coordenadas: {geoLocation.lat.toFixed(4)}°, {geoLocation.lon.toFixed(4)}°</p>
+                {geoLocation.city && <p>🏙️ Ciudad: {geoLocation.city}</p>}
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-300">🌡️ Clima Actual:</span>
-                <span className="font-semibold text-orange-400">{cacheStats.weather}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-300">📈 Pronósticos:</span>
-                <span className="font-semibold text-cyan-400">{cacheStats.forecast}</span>
-              </div>
-              <div className="border-t border-slate-600 pt-2 mt-2 flex justify-between text-sm font-bold">
-                <span>Total:</span>
-                <span className="text-purple-400">{totalCached}</span>
-              </div>
-            </div>
-
-            {/* Geolocalización */}
-            <div className="bg-green-900/30 border border-green-700 rounded p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-green-300">📍 Ubicación Actual</span>
-                {geoStatus === 'loading' && <span className="text-xs text-gray-300">⏳ Detectando...</span>}
-                {geoStatus === 'success' && <span className="text-xs text-green-300">✅ Obtenida</span>}
-                {geoStatus === 'error' && <span className="text-xs text-red-300">❌ Error</span>}
-              </div>
-              
-              {geoLocation ? (
-                <div className="text-xs text-gray-200 space-y-1">
-                  <p>🗺️ Coordenadas: {geoLocation.lat.toFixed(4)}°, {geoLocation.lon.toFixed(4)}°</p>
-                  {geoLocation.city && <p>🏙️ Ciudad: {geoLocation.city}</p>}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-300">Sin ubicación detectada</p>
-              )}
-              
-              <button
-                onClick={requestGeolocation}
-                disabled={geoStatus === 'loading' || isLoading}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-1 px-2 rounded text-xs font-medium transition-colors mt-2"
-              >
-                {geoStatus === 'loading' ? '⏳ Detectando...' : '📍 Detectar Ubicación'}
-              </button>
-              
-              <p className="text-xs text-gray-400">
-                💡 Esto ayuda a resolver ciudades ambiguas automáticamente
-              </p>
-            </div>
-
-            {/* Información de expiración */}
-            <div className="bg-blue-900/30 border border-blue-700 rounded p-2 text-xs text-blue-200">
-              <p>⏱️ <strong>Expiración automática:</strong></p>
-              <p>• Ubicaciones: No expiran</p>
-              <p>• Clima actual: 24 horas</p>
-              <p>• Pronósticos: 6 horas</p>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="space-y-2">
-              <button
-                onClick={handleClearExpired}
-                disabled={isLoading}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
-              >
-                {isLoading ? '⏳ Limpiando...' : '🗑️ Limpiar Expirado'}
-              </button>
-              <button
-                onClick={handleClearAll}
-                disabled={isLoading}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
-              >
-                {isLoading ? '⏳ Limpiando...' : '🗑️ Limpiar TODO'}
-              </button>
-            </div>
-
-            {/* Footer */}
-            <p className="text-xs text-gray-400 text-center border-t border-slate-600 pt-2">
-              Usar para resolver problemas de inconsistencia
+            ) : (
+              <p className="text-xs text-gray-300">Sin ubicación detectada</p>
+            )}
+            
+            <button
+              onClick={requestGeolocation}
+              disabled={geoStatus === 'loading' || isLoading}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-1 px-2 rounded text-xs font-medium transition-colors mt-2"
+            >
+              {geoStatus === 'loading' ? '⏳ Detectando...' : '📍 Detectar Ubicación'}
+            </button>
+            
+            <p className="text-xs text-gray-400">
+              💡 Esto ayuda a resolver ciudades ambiguas automáticamente
             </p>
           </div>
+
+          {/* Información de expiración */}
+          <div className="bg-blue-900/30 border border-blue-700 rounded p-2 text-xs text-blue-200">
+            <p>⏱️ <strong>Expiración automática:</strong></p>
+            <p>• Ubicaciones: No expiran</p>
+            <p>• Clima actual: 24 horas</p>
+            <p>• Pronósticos: 6 horas</p>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="space-y-2">
+            <button
+              onClick={handleClearExpired}
+              disabled={isLoading}
+              className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
+            >
+              {isLoading ? '⏳ Limpiando...' : '🗑️ Limpiar Expirado'}
+            </button>
+            <button
+              onClick={handleClearAll}
+              disabled={isLoading}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
+            >
+              {isLoading ? '⏳ Limpiando...' : '🗑️ Limpiar TODO'}
+            </button>
+          </div>
+
+          {/* Footer */}
+          <p className="text-xs text-gray-400 text-center border-t border-slate-600 pt-2">
+            Usar para resolver problemas de inconsistencia
+          </p>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }
