@@ -185,11 +185,27 @@ ${geoContext}
 🔹 CLIMA ACTUAL:
 {"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"current"}
 
-🔹 PRONÓSTICO DÍA ESPECÍFICO:
+🔹 PRONÓSTICO DÍA ESPECÍFICO (si piden MAÑANA, PASADO MAÑANA, o un día concreto):
 {"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":1,"start_from":N}
+   - start_from=0 para HOY
+   - start_from=1 para MAÑANA
+   - start_from=2 para PASADO MAÑANA
+   - start_from=N para días futuros
 
-🔹 PRONÓSTICO MÚLTIPLES DÍAS:
-{"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":N,"start_from":0}
+🔹 PRONÓSTICO SEMANA COMPLETA (si piden SEMANA, PRÓXIMOS 7 DÍAS, TODO EL MES, etc.):
+{"needs_weather":true,"city":"Nombre de la Ciudad, País","type":"forecast","days_count":7,"start_from":0}
+   - SIEMPRE days_count=7 para semana
+   - SIEMPRE start_from=0 para empezar desde HOY
+   - Si piden "a partir de mañana": start_from=1
+   
+⚠️ CRÍTICO - CUANDO USAR CADA TIPO:
+   - Usuario: "¿Mañana?" → days_count=1, start_from=1
+   - Usuario: "¿Pasado mañana?" → days_count=1, start_from=2
+   - Usuario: "¿El viernes?" → days_count=1, start_from=[X]
+   - Usuario: "¿Próxima semana?" → days_count=7, start_from=0
+   - Usuario: "¿La semana completa?" → days_count=7, start_from=0
+   - Usuario: "¿De aquí a 7 días?" → days_count=7, start_from=0
+   - Usuario: "¿A partir de mañana la semana?" → days_count=7, start_from=1
 
 PERSONALIDAD:
 - Natural y conversacional
