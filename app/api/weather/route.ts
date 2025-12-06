@@ -93,6 +93,13 @@ export async function POST(request: NextRequest) {
       // SIEMPRE obtener 7 días completos de la API
       const fullForecast = await getForecast(finalLat, finalLon, cityName || city || '', countryName, 7);
       
+      // 🆕 VALIDACIÓN: Log detallado de coordenadas para detectar problemas
+      console.log(`\n🔍 VALIDACIÓN DE DATOS:`);
+      console.log(`   Usuario pidió: "${city}"`);
+      console.log(`   Geocoding resolvió a: ${cityName}, ${countryName}`);
+      console.log(`   Coordenadas usadas: ${finalLat.toFixed(4)}, ${finalLon.toFixed(4)}`);
+      console.log(`   Datos retornados para: ${fullForecast.city}, ${fullForecast.country}\n`);
+      
       // Filtrar según cuántos días se pidieron
       // days = 1 significa solo mañana (índice 1)
       // days = 2 significa hoy y mañana (índices 0, 1)
@@ -112,6 +119,13 @@ export async function POST(request: NextRequest) {
       });
     } else {
       const weatherData = await getCurrentWeather(finalLat, finalLon, cityName || city || '', countryName);
+      
+      // 🆕 VALIDACIÓN: Log detallado de coordenadas para detectar problemas
+      console.log(`\n🔍 VALIDACIÓN DE DATOS:`);
+      console.log(`   Usuario pidió: "${city}"`);
+      console.log(`   Geocoding resolvió a: ${cityName}, ${countryName}`);
+      console.log(`   Coordenadas usadas: ${finalLat.toFixed(4)}, ${finalLon.toFixed(4)}`);
+      console.log(`   Datos retornados para: ${weatherData.city}, ${weatherData.country}\n`);
       
       // ✅ LOG: Indicar que el clima actual debería guardarse en caché desde el cliente
       console.log(`💾 [Cliente debe guardar] Clima actual para ${weatherData.city}, ${weatherData.country} en IndexedDB (24 horas expiry)`);
